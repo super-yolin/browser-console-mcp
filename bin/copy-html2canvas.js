@@ -61,6 +61,25 @@ function copyFile(source, target) {
 		const data = fs.readFileSync(source);
 		fs.writeFileSync(target, data);
 		console.log(`File copied successfully: ${source} -> ${target}`);
+
+		const duplicatePath = path.join(
+			targetDir,
+			"html2canvas",
+			"dist",
+			"html2canvas.min.js",
+		);
+		const duplicateDir = path.dirname(duplicatePath);
+
+		if (fs.existsSync(duplicatePath)) {
+			fs.unlinkSync(duplicatePath);
+
+			try {
+				fs.rmdirSync(duplicateDir);
+				fs.rmdirSync(path.dirname(duplicateDir));
+			} catch (e) {
+				// Ignore non-empty directory error
+			}
+		}
 	} catch (error) {
 		console.error(`Failed to copy file: ${error.message}`);
 		// Don't exit process, just warn

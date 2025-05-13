@@ -55,4 +55,11 @@ Thumbs.db
 
 # Rollup configs
 rollup.*.js
-rollup.config.js 
+rollup.config.js
+
+# Duplicate html2canvas files
+dist/static/html2canvas/
+
+# Temporary files
+.tmp/
+temp/

@@ -1,6 +1,6 @@
 {
 	"name": "browser-console-mcp",
-	"version": "1.0.4",
+	"version": "1.0.5",
 	"description": "MCP client for browser console and server for Cursor",
 	"main": "dist/server/index.js",
 	"type": "module",
@@ -12,7 +12,8 @@
 		"build:client": "rollup -c",
 		"build:browser": "rollup -c rollup.browser.config.js",
 		"copy:html2canvas": "node bin/copy-html2canvas.js",
-		"build:all": "pnpm build && pnpm build:client && pnpm build:browser && pnpm copy:html2canvas",
+		"copy:browser-inject": "node bin/copy-browser-inject.js",
+		"build:all": "pnpm build && pnpm build:client && pnpm build:browser && pnpm copy:html2canvas && pnpm copy:browser-inject",
 		"dev": "tsc --watch",
 		"start": "node dist/server/index.js",
 		"start:browser": "node dist/browser/index.js",

@@ -1313,8 +1313,6 @@ mcpServer.connect(transport).catch((error: Error) => {
  * Clean up resources and exit
  */
 function cleanupAndExit(shouldExit = true) {
-	console.log("[BCM] Closing server...");
-
 	// Close all WebSocket connections
 	for (const conn of browserConnections) {
 		try {
