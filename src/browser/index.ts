@@ -374,18 +374,21 @@ mcpServer.tool(
 			// Set one-time message handling function
 			const messageHandler = (data: Buffer | ArrayBuffer | Buffer[]) => {
 				try {
-					const message = JSON.parse(data.toString());
-					// Only record message type and request ID, not full message content
-					console.info(
-						`[Browser MCP] Received message response, request ID: ${message.requestId}`,
-					);
+					const dataStr = data.toString();
+					// Check if message starts with "[Browser MC", if so, don't try to parse as JSON
+					if (dataStr.startsWith("[Browser MC")) {
+						console.info(`[Browser MCP] Received log message: ${dataStr}`);
+						return; // This is a log message, no need to parse as JSON
+					}
 
-					// Check if it's the corresponding response
+					const message = JSON.parse(dataStr);
+
+					// Check if this is the corresponding response
 					if (message.requestId === requestId) {
 						// Clear timeout
 						clearTimeout(timeout);
 
-						// Remove message handling function
+						// Remove message handler
 						browserConnections[0].removeListener("message", messageHandler);
 
 						// Return result
@@ -421,8 +424,13 @@ mcpServer.tool(
 						}
 					}
 				} catch (error) {
-					console.error("[Browser MCP] Error parsing message:", error);
-					// Ignore parsing errors
+					// Log parsing error, but don't interrupt the flow
+					console.error(
+						"[Browser MCP] Message parsing error:",
+						error,
+						"Raw data:",
+						data.toString().substring(0, 100),
+					);
 				}
 			};
 
@@ -480,9 +488,16 @@ mcpServer.tool(
 			// Set one-time message handling function
 			const messageHandler = (data: Buffer | ArrayBuffer | Buffer[]) => {
 				try {
-					const message = JSON.parse(data.toString());
+					const dataStr = data.toString();
+					// Check if message starts with "[Browser MC", if so, don't try to parse as JSON
+					if (dataStr.startsWith("[Browser MC")) {
+						console.info(`[Browser MCP] Received log message: ${dataStr}`);
+						return; // This is a log message, no need to parse as JSON
+					}
 
-					// Check if it's the corresponding response
+					const message = JSON.parse(dataStr);
+
+					// Check if this is the corresponding response
 					if (message.requestId === requestId) {
 						// Clear timeout
 						clearTimeout(timeout);
@@ -513,7 +528,13 @@ mcpServer.tool(
 						}
 					}
 				} catch (error) {
-					// Ignore parsing errors
+					// Log parsing error, but don't interrupt the flow
+					console.error(
+						"[Browser MCP] Message parsing error:",
+						error,
+						"Raw data:",
+						data.toString().substring(0, 100),
+					);
 				}
 			};
 
@@ -567,14 +588,21 @@ mcpServer.tool("getPageTitle", "Get title of the current page", async () => {
 		// Set one-time message handling function
 		const messageHandler = (data: Buffer | ArrayBuffer | Buffer[]) => {
 			try {
-				const message = JSON.parse(data.toString());
+				const dataStr = data.toString();
+				// Check if message starts with "[Browser MC", if so, don't try to parse as JSON
+				if (dataStr.startsWith("[Browser MC")) {
+					console.info(`[Browser MCP] Received log message: ${dataStr}`);
+					return; // This is a log message, no need to parse as JSON
+				}
 
-				// Check if it's the corresponding response
+				const message = JSON.parse(dataStr);
+
+				// Check if this is the corresponding response
 				if (message.requestId === requestId) {
 					// Clear timeout
 					clearTimeout(timeout);
 
-					// Remove message handling function
+					// Remove message handler
 					browserConnections[0].removeListener("message", messageHandler);
 
 					// Return result
@@ -600,7 +628,13 @@ mcpServer.tool("getPageTitle", "Get title of the current page", async () => {
 					}
 				}
 			} catch (error) {
-				// Ignore parsing errors
+				// Log parsing error, but don't interrupt the flow
+				console.error(
+					"[Browser MCP] Message parsing error:",
+					error,
+					"Raw data:",
+					data.toString().substring(0, 100),
+				);
 			}
 		};
 
@@ -671,7 +705,14 @@ mcpServer.tool(
 			// Set one-time message handling function
 			const messageHandler = (data: Buffer | ArrayBuffer | Buffer[]) => {
 				try {
-					const message = JSON.parse(data.toString());
+					const dataStr = data.toString();
+					// Check if message starts with "[Browser MC", if so, don't try to parse as JSON
+					if (dataStr.startsWith("[Browser MC")) {
+						console.info(`[Browser MCP] Received log message: ${dataStr}`);
+						return; // This is a log message, no need to parse as JSON
+					}
+
+					const message = JSON.parse(dataStr);
 
 					// Check if it's the corresponding response
 					if (message.requestId === requestId) {
@@ -706,7 +747,13 @@ mcpServer.tool(
 						}
 					}
 				} catch (error) {
-					// Ignore parsing errors
+					// Log parsing error, but don't interrupt the flow
+					console.error(
+						"[Browser MCP] Message parsing error:",
+						error,
+						"Raw data:",
+						data.toString().substring(0, 100),
+					);
 				}
 			};
 
@@ -773,7 +820,14 @@ mcpServer.tool(
 			// Set one-time message handling function
 			const messageHandler = (data: Buffer | ArrayBuffer | Buffer[]) => {
 				try {
-					const message = JSON.parse(data.toString());
+					const dataStr = data.toString();
+					// Check if message starts with "[Browser MC", if so, don't try to parse as JSON
+					if (dataStr.startsWith("[Browser MC")) {
+						console.info(`[Browser MCP] Received log message: ${dataStr}`);
+						return; // This is a log message, no need to parse as JSON
+					}
+
+					const message = JSON.parse(dataStr);
 					console.info(
 						`[Browser MCP] Received screenshot response, request ID: ${message.requestId}`,
 					);
@@ -951,9 +1005,16 @@ mcpServer.tool("getPageURL", "Get URL of the current page", async () => {
 		// Set one-time message handling function
 		const messageHandler = (data: Buffer | ArrayBuffer | Buffer[]) => {
 			try {
-				const message = JSON.parse(data.toString());
+				const dataStr = data.toString();
+				// Check if message starts with "[Browser MC", if so, don't try to parse as JSON
+				if (dataStr.startsWith("[Browser MC")) {
+					console.info(`[Browser MCP] Received log message: ${dataStr}`);
+					return; // This is a log message, no need to parse as JSON
+				}
 
-				// Check if it's the corresponding response
+				const message = JSON.parse(dataStr);
+
+				// Check if this is the corresponding response
 				if (message.requestId === requestId) {
 					// Clear timeout
 					clearTimeout(timeout);
@@ -984,7 +1045,13 @@ mcpServer.tool("getPageURL", "Get URL of the current page", async () => {
 					}
 				}
 			} catch (error) {
-				// Ignore parsing errors
+				// Log parsing error, but don't interrupt the flow
+				console.error(
+					"[Browser MCP] Message parsing error:",
+					error,
+					"Raw data:",
+					data.toString().substring(0, 100),
+				);
 			}
 		};
 
@@ -1055,7 +1122,14 @@ mcpServer.tool(
 			// Set one-time message handling function
 			const messageHandler = (data: Buffer | ArrayBuffer | Buffer[]) => {
 				try {
-					const message = JSON.parse(data.toString());
+					const dataStr = data.toString();
+					// Check if message starts with "[Browser MC", if so, don't try to parse as JSON
+					if (dataStr.startsWith("[Browser MC")) {
+						console.info(`[Browser MCP] Received log message: ${dataStr}`);
+						return; // This is a log message, no need to parse as JSON
+					}
+
+					const message = JSON.parse(dataStr);
 
 					// Check if it's the corresponding response
 					if (message.requestId === requestId) {
@@ -1088,7 +1162,13 @@ mcpServer.tool(
 						}
 					}
 				} catch (error) {
-					// Ignore parsing errors
+					// Log parsing error, but don't interrupt the flow
+					console.error(
+						"[Browser MCP] Message parsing error:",
+						error,
+						"Raw data:",
+						data.toString().substring(0, 100),
+					);
 				}
 			};
 
@@ -1165,7 +1245,14 @@ mcpServer.tool(
 			// Set one-time message handling function
 			const messageHandler = (data: Buffer | ArrayBuffer | Buffer[]) => {
 				try {
-					const message = JSON.parse(data.toString());
+					const dataStr = data.toString();
+					// Check if message starts with "[Browser MC", if so, don't try to parse as JSON
+					if (dataStr.startsWith("[Browser MC")) {
+						console.info(`[Browser MCP] Received log message: ${dataStr}`);
+						return; // This is a log message, no need to parse as JSON
+					}
+
+					const message = JSON.parse(dataStr);
 
 					// Check if it's the corresponding response
 					if (message.requestId === requestId) {
@@ -1198,7 +1285,13 @@ mcpServer.tool(
 						}
 					}
 				} catch (error) {
-					// Ignore parsing errors
+					// Log parsing error, but don't interrupt the flow
+					console.error(
+						"[Browser MCP] Message parsing error:",
+						error,
+						"Raw data:",
+						data.toString().substring(0, 100),
+					);
 				}
 			};
 

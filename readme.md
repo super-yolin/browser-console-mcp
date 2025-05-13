@@ -2,10 +2,11 @@
 
 Browser console MCP client and Cursor MCP server. Let your AI assistant control the browser!
 
-<details>
-<summary>English (Default)</summary>
+**Language**: [English](#english) | [中文](#中文) | [日本語](#日本語) | [한국어](#한국어)
 
-## Introduction
+## English
+
+### Introduction
 
 Browser Console MCP is a tool that allows Cursor's Claude AI assistant to interact with the browser through the MCP (Model Context Protocol) protocol. It provides a browser client and an MCP server, enabling the AI assistant to perform the following operations:
 
@@ -17,44 +18,40 @@ Browser Console MCP is a tool that allows Cursor's Claude AI assistant to intera
 - Click page elements
 - Input text into form fields
 
-## Installation
+### Usage
 
-### Global Installation
-
-```bash
-pnpm add -g browser-console-mcp
-```
-
-### Local Installation
-
-```bash
-pnpm add browser-console-mcp
-```
-
-## Usage
-
-### Start MCP Server
-
-```bash
-# If installed globally
-browser-console-mcp start
-
-# If installed locally
-pnpx browser-console-mcp start
-```
-
-### Inject MCP Client in Browser
+#### Inject MCP Client in Browser
 
 Execute the following code in your browser console:
 
 ```javascript
-// Inject MCP server
+// ======== IMPORTANT: Inject MCP server ========
 var s = document.createElement('script');
 s.src = 'http://localhost:7898/browser-inject.js';
 document.head.appendChild(s);
+// ==============================================
 ```
 
-### Using in Cursor
+#### MCP Configuration
+
+Create a `.cursor/mcp.json` file in your home directory:
+
+```json
+{
+  "mcpServers": {
+    "browser-mcp": {
+      "command": "pnpx",
+      "enable": true,
+      "args": ["-y", "browser-console-mcp"],
+      "env": {
+        "PORT": "7898"
+      }
+    }
+  }
+}
+```
+
+#### Using in Cursor
 
 In Cursor, your AI assistant can now use the following tools:
 
@@ -67,32 +64,13 @@ In Cursor, your AI assistant can now use the following tools:
 - `mcp_browser-mcp_clickElement`: Click page elements
 - `mcp_browser-mcp_inputText`: Input text into form fields
 
-## Development
-
-```bash
-# Install dependencies
-pnpm install
-
-# Build project
-pnpm build:all
-
-# Start development mode
-pnpm dev
-```
-
-## License
+### License
 
 MIT
-</details>
 
-<details>
-<summary>中文</summary>
+## 中文
 
-# Browser Console MCP
-
-浏览器控制台的MCP客户端和Cursor的MCP服务器。让你的AI助手能够控制浏览器！
-
-## 简介
+### 简介
 
 Browser Console MCP 是一个工具，允许 Cursor 的 Claude AI 助手通过 MCP（Model Context Protocol）协议与浏览器进行交互。它提供了一个浏览器客户端和一个 MCP 服务器，使 AI 助手能够执行以下操作：
 
@@ -104,44 +82,40 @@ Browser Console MCP 是一个工具，允许 Cursor 的 Claude AI 助手通过 M
 - 点击页面元素
 - 向输入框填入文本
 
-## 安装
+### 使用方法
 
-### 全局安装
-
-```bash
-pnpm add -g browser-console-mcp
-```
-
-### 本地安装
-
-```bash
-pnpm add browser-console-mcp
-```
-
-## 使用方法
-
-### 启动 MCP 服务器
-
-```bash
-# 全局安装的情况
-browser-console-mcp start
-
-# 本地安装的情况
-pnpx browser-console-mcp start
-```
-
-### 在浏览器中注入 MCP 客户端
+#### 在浏览器中注入 MCP 客户端
 
 在浏览器控制台中执行以下代码：
 
 ```javascript
-// 注入MCP服务器
+// ======== 重要: 注入MCP服务器 ========
 var s = document.createElement('script');
 s.src = 'http://localhost:7898/browser-inject.js';
 document.head.appendChild(s);
+// ====================================
 ```
 
-### 在 Cursor 中使用
+#### MCP 配置
+
+在您的主目录中创建 `.cursor/mcp.json` 文件：
+
+```json
+{
+  "mcpServers": {
+    "browser-mcp": {
+      "command": "pnpx",
+      "enable": true,
+      "args": ["-y", "browser-console-mcp"],
+      "env": {
+        "PORT": "7898"
+      }
+    }
+  }
+}
+```
+
+#### 在 Cursor 中使用
 
 在 Cursor 中，你的 AI 助手现在可以使用以下工具：
 
@@ -154,32 +128,13 @@ document.head.appendChild(s);
 - `mcp_browser-mcp_clickElement`: 点击页面元素
 - `mcp_browser-mcp_inputText`: 向输入框填入文本
 
-## 开发
-
-```bash
-# 安装依赖
-pnpm install
-
-# 构建项目
-pnpm build:all
-
-# 启动开发模式
-pnpm dev
-```
-
-## 许可证
+### 许可证
 
 MIT
-</details>
 
-<details>
-<summary>日本語</summary>
+## 日本語
 
-# Browser Console MCP
-
-ブラウザコンソールのMCPクライアントとCursorのMCPサーバー。AIアシスタントにブラウザを制御させましょう！
-
-## はじめに
+### はじめに
 
 Browser Console MCPは、CursorのClaude AIアシスタントがMCP（Model Context Protocol）プロトコルを通じてブラウザと対話できるようにするツールです。ブラウザクライアントとMCPサーバーを提供し、AIアシスタントが以下の操作を実行できるようにします：
 
@@ -191,44 +146,40 @@ Browser Console MCPは、CursorのClaude AIアシスタントがMCP（Model Cont
 - ページ要素のクリック
 - 入力フィールドへのテキスト入力
 
-## インストール
+### 使用方法
 
-### グローバルインストール
-
-```bash
-pnpm add -g browser-console-mcp
-```
-
-### ローカルインストール
-
-```bash
-pnpm add browser-console-mcp
-```
-
-## 使用方法
-
-### MCPサーバーの起動
-
-```bash
-# グローバルインストールの場合
-browser-console-mcp start
-
-# ローカルインストールの場合
-pnpx browser-console-mcp start
-```
-
-### ブラウザにMCPクライアントを注入
+#### ブラウザにMCPクライアントを注入
 
 ブラウザのコンソールで以下のコードを実行します：
 
 ```javascript
-// MCPサーバーを注入
+// ======== 重要: MCPサーバーを注入 ========
 var s = document.createElement('script');
 s.src = 'http://localhost:7898/browser-inject.js';
 document.head.appendChild(s);
+// ========================================
 ```
 
-### Cursorでの使用
+#### MCP設定
+
+ホームディレクトリに `.cursor/mcp.json` ファイルを作成します：
+
+```json
+{
+  "mcpServers": {
+    "browser-mcp": {
+      "command": "pnpx",
+      "enable": true,
+      "args": ["-y", "browser-console-mcp"],
+      "env": {
+        "PORT": "7898"
+      }
+    }
+  }
+}
+```
+
+#### Cursorでの使用
 
 Cursorでは、AIアシスタントが以下のツールを使用できるようになります：
 
@@ -241,32 +192,13 @@ Cursorでは、AIアシスタントが以下のツールを使用できるよう
 - `mcp_browser-mcp_clickElement`: ページ要素をクリック
 - `mcp_browser-mcp_inputText`: 入力フィールドにテキストを入力
 
-## 開発
-
-```bash
-# 依存関係のインストール
-pnpm install
-
-# プロジェクトのビルド
-pnpm build:all
-
-# 開発モードの起動
-pnpm dev
-```
-
-## ライセンス
+### ライセンス
 
 MIT
-</details>
 
-<details>
-<summary>한국어</summary>
+## 한국어
 
-# Browser Console MCP
-
-브라우저 콘솔용 MCP 클라이언트와 Cursor용 MCP 서버. AI 어시스턴트가 브라우저를 제어할 수 있게 해보세요!
-
-## 소개
+### 소개
 
 Browser Console MCP는 Cursor의 Claude AI 어시스턴트가 MCP(Model Context Protocol) 프로토콜을 통해 브라우저와 상호작용할 수 있게 해주는 도구입니다. 브라우저 클라이언트와 MCP 서버를 제공하여 AI 어시스턴트가 다음 작업을 수행할 수 있도록 합니다:
 
@@ -278,44 +210,40 @@ Browser Console MCP는 Cursor의 Claude AI 어시스턴트가 MCP(Model Context 
 - 페이지 요소 클릭하기
 - 입력 필드에 텍스트 입력하기
 
-## 설치
+### 사용 방법
 
-### 전역 설치
-
-```bash
-pnpm add -g browser-console-mcp
-```
-
-### 로컬 설치
-
-```bash
-pnpm add browser-console-mcp
-```
-
-## 사용 방법
-
-### MCP 서버 시작하기
-
-```bash
-# 전역 설치한 경우
-browser-console-mcp start
-
-# 로컬 설치한 경우
-pnpx browser-console-mcp start
-```
-
-### 브라우저에 MCP 클라이언트 주입하기
+#### 브라우저에 MCP 클라이언트 주입하기
 
 브라우저 콘솔에서 다음 코드를 실행하세요:
 
 ```javascript
-// MCP 서버 주입
+// ======== 중요: MCP 서버 주입 ========
 var s = document.createElement('script');
 s.src = 'http://localhost:7898/browser-inject.js';
 document.head.appendChild(s);
+// ===================================
 ```
 
-### Cursor에서 사용하기
+#### MCP 구성
+
+홈 디렉토리에 `.cursor/mcp.json` 파일을 생성하세요:
+
+```json
+{
+  "mcpServers": {
+    "browser-mcp": {
+      "command": "pnpx",
+      "enable": true,
+      "args": ["-y", "browser-console-mcp"],
+      "env": {
+        "PORT": "7898"
+      }
+    }
+  }
+}
+```
+
+#### Cursor에서 사용하기
 
 Cursor에서 AI 어시스턴트는 이제 다음 도구들을 사용할 수 있습니다:
 
@@ -328,20 +256,6 @@ Cursor에서 AI 어시스턴트는 이제 다음 도구들을 사용할 수 있�
 - `mcp_browser-mcp_clickElement`: 페이지 요소 클릭하기
 - `mcp_browser-mcp_inputText`: 입력 필드에 텍스트 입력하기
 
-## 개발
-
-```bash
-# 의존성 설치
-pnpm install
-
-# 프로젝트 빌드
-pnpm build:all
-
-# 개발 모드 시작
-pnpm dev
-```
-
-## 라이선스
+### 라이선스
 
 MIT
-</details>
