@@ -48,4 +48,11 @@ pnpm-debug.log*
 
 # Other
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# Source maps
+*.map
+
+# Rollup configs
+rollup.*.js
+rollup.config.js 

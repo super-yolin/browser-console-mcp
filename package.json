@@ -1,6 +1,6 @@
 {
 	"name": "browser-console-mcp",
-	"version": "1.0.3",
+	"version": "1.0.4",
 	"description": "MCP client for browser console and server for Cursor",
 	"main": "dist/server/index.js",
 	"type": "module",
@@ -47,6 +47,7 @@
 		"@rollup/plugin-typescript": "^11.1.6",
 		"@types/node": "^20.17.46",
 		"@types/ws": "^8.18.1",
+		"html2canvas": "^1.4.1",
 		"rollup": "^4.12.1",
 		"rollup-plugin-terser": "^7.0.2",
 		"tslib": "^2.8.1",
@@ -54,8 +55,15 @@
 	},
 	"dependencies": {
 		"@modelcontextprotocol/sdk": "^1.5.0",
-		"html2canvas": "^1.4.1",
 		"ws": "^8.16.0",
 		"zod": "^3.24.4"
+	},
+	"peerDependencies": {
+		"html2canvas": "^1.4.1"
+	},
+	"peerDependenciesMeta": {
+		"html2canvas": {
+			"optional": true
+		}
 	}
 }

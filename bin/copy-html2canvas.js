@@ -1,5 +1,6 @@
 /**
  * Copy html2canvas to static resources directory
+ * This script handles html2canvas as an optional dependency
  */
 
 import fs from "node:fs";
@@ -35,12 +36,35 @@ function ensureDirectoryExists(dirPath) {
 // Copy file
 function copyFile(source, target) {
 	try {
+		if (!fs.existsSync(source)) {
+			console.warn(`Warning: html2canvas not found at ${source}`);
+			console.warn(
+				"Screenshot functionality will not be available unless html2canvas is installed.",
+			);
+
+			// Create a minimal placeholder file
+			const placeholder = `
+				// html2canvas is not installed
+				// Install it with: pnpm add html2canvas
+				console.warn("html2canvas is not installed. Screenshot functionality is disabled.");
+				export default function() {
+					throw new Error("html2canvas is not installed");
+				}
+			`;
+
+			ensureDirectoryExists(targetDir);
+			fs.writeFileSync(target, placeholder);
+			console.log(`Created placeholder file at: ${target}`);
+			return;
+		}
+
 		const data = fs.readFileSync(source);
 		fs.writeFileSync(target, data);
 		console.log(`File copied successfully: ${source} -> ${target}`);
 	} catch (error) {
 		console.error(`Failed to copy file: ${error.message}`);
-		process.exit(1);
+		// Don't exit process, just warn
+		console.warn("Screenshot functionality may not work correctly.");
 	}
 }
 
@@ -48,4 +72,4 @@ function copyFile(source, target) {
 console.log("Starting to copy html2canvas...");
 ensureDirectoryExists(targetDir);
 copyFile(sourcePath, targetPath);
-console.log("html2canvas copy completed");
+console.log("html2canvas copy process completed");
