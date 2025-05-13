@@ -7,7 +7,7 @@
 (() => {
 	// Check if MCP client is already loaded
 	if (window.mcp) {
-		console.info("[Browser MCP] MCP client already loaded");
+		console.log("[BCM] MCP client already loaded");
 		return;
 	}
 
@@ -22,13 +22,13 @@
 	const script = document.createElement("script");
 	script.src = `${serverUrl}/browser-console-mcp.js`;
 	script.onload = () => {
-		console.info("[Browser MCP] MCP client loaded successfully");
+		console.log("[BCM] MCP client loaded successfully");
 	};
 	script.onerror = (error) => {
-		console.error("[Browser MCP] Failed to load MCP client:", error);
+		console.error("[BCM] Failed to load MCP client:", error);
 	};
 
 	document.head.appendChild(script);
 
-	console.info("[Browser MCP] Loading MCP client...");
+	console.log("[BCM] Loading MCP client...");
 })();

@@ -72,9 +72,8 @@ const server = createServer((req, res) => {
 		try {
 			const content = readFileSync(filePath, "utf8");
 			res.end(content);
-			console.info("[Browser MCP] Serving file: browser-mcp-server.js");
 		} catch (error) {
-			console.error("[Browser MCP] Error reading file:", error);
+			console.error("[BCM] Error reading file:", error);
 			res.writeHead(500);
 			res.end("Internal Server Error");
 		}
@@ -87,9 +86,8 @@ const server = createServer((req, res) => {
 		try {
 			const content = readFileSync(filePath, "utf8");
 			res.end(content);
-			console.info("[Browser MCP] Serving file: browser-inject.js");
 		} catch (error) {
-			console.error("[Browser MCP] Error reading file:", error);
+			console.error("[BCM] Error reading file:", error);
 			res.writeHead(500);
 			res.end("Internal Server Error");
 		}
@@ -103,9 +101,8 @@ const server = createServer((req, res) => {
 		try {
 			const content = readFileSync(filePath, "utf8");
 			res.end(content);
-			console.info("[Browser MCP] Serving file: browser-console-mcp.js");
 		} catch (error) {
-			console.error("[Browser MCP] Error reading file:", error);
+			console.error("[BCM] Error reading file:", error);
 			res.writeHead(500);
 			res.end("Internal Server Error");
 		}
@@ -119,9 +116,8 @@ const server = createServer((req, res) => {
 		try {
 			const content = readFileSync(filePath, "utf8");
 			res.end(content);
-			console.info("[Browser MCP] Serving file: browser-console-mcp.js.map");
 		} catch (error) {
-			console.error("[Browser MCP] Error reading file:", error);
+			console.error("[BCM] Error reading file:", error);
 			res.writeHead(500);
 			res.end("Internal Server Error");
 		}
@@ -239,7 +235,6 @@ wss.on("connection", (ws, req) => {
 
 	if (path === "/browser") {
 		// Browser connection
-		console.info("[Browser MCP] New browser connection");
 		browserConnections.push(ws);
 
 		// Send connection status message
@@ -254,12 +249,6 @@ wss.on("connection", (ws, req) => {
 		// Handle browser messages
 		ws.on("message", (data) => {
 			try {
-				const message = JSON.parse(data.toString());
-				// Only record message type, not full message content
-				console.info(
-					`[Browser MCP] Received browser message type: ${message.type || "Unknown type"}`,
-				);
-
 				// Forward message to Cursor
 				if (cursorConnections.length > 0) {
 					for (const conn of cursorConnections) {
@@ -267,13 +256,13 @@ wss.on("connection", (ws, req) => {
 					}
 				}
 			} catch (error) {
-				console.error("[Browser MCP] Error parsing browser message:", error);
+				console.error("[BCM] Error parsing browser message:", error);
 			}
 		});
 
 		// Handle connection closure
 		ws.on("close", () => {
-			console.info("[Browser MCP] Browser connection closed");
+			console.log("[BCM] Browser connection closed");
 			const index = browserConnections.indexOf(ws);
 			if (index !== -1) {
 				browserConnections.splice(index, 1);
@@ -281,17 +270,13 @@ wss.on("connection", (ws, req) => {
 		});
 	} else if (path === "/cursor") {
 		// Cursor connection
-		console.info("[Browser MCP] New Cursor connection");
+		console.log("[BCM] New Cursor connection");
 		cursorConnections.push(ws);
 
 		// Handle Cursor messages
 		ws.on("message", (data) => {
 			try {
 				const message = JSON.parse(data.toString());
-				// Only record message type, not full message content
-				console.info(
-					`[Browser MCP] Received Cursor message type: ${message.type || "Unknown type"}`,
-				);
 
 				// Forward message to browser
 				if (browserConnections.length > 0) {
@@ -300,13 +285,13 @@ wss.on("connection", (ws, req) => {
 					}
 				}
 			} catch (error) {
-				console.error("[Browser MCP] Error parsing Cursor message:", error);
+				console.error("[BCM] Error parsing Cursor message:", error);
 			}
 		});
 
 		// Handle connection closure
 		ws.on("close", () => {
-			console.info("[Browser MCP] Cursor connection closed");
+			console.log("[BCM] Cursor connection closed");
 			const index = cursorConnections.indexOf(ws);
 			if (index !== -1) {
 				cursorConnections.splice(index, 1);
@@ -377,7 +362,6 @@ mcpServer.tool(
 					const dataStr = data.toString();
 					// Check if message starts with "[Browser MC", if so, don't try to parse as JSON
 					if (dataStr.startsWith("[Browser MC")) {
-						console.info(`[Browser MCP] Received log message: ${dataStr}`);
 						return; // This is a log message, no need to parse as JSON
 					}
 
@@ -426,7 +410,7 @@ mcpServer.tool(
 				} catch (error) {
 					// Log parsing error, but don't interrupt the flow
 					console.error(
-						"[Browser MCP] Message parsing error:",
+						"[BCM] Message parsing error:",
 						error,
 						"Raw data:",
 						data.toString().substring(0, 100),
@@ -491,7 +475,6 @@ mcpServer.tool(
 					const dataStr = data.toString();
 					// Check if message starts with "[Browser MC", if so, don't try to parse as JSON
 					if (dataStr.startsWith("[Browser MC")) {
-						console.info(`[Browser MCP] Received log message: ${dataStr}`);
 						return; // This is a log message, no need to parse as JSON
 					}
 
@@ -530,7 +513,7 @@ mcpServer.tool(
 				} catch (error) {
 					// Log parsing error, but don't interrupt the flow
 					console.error(
-						"[Browser MCP] Message parsing error:",
+						"[BCM] Message parsing error:",
 						error,
 						"Raw data:",
 						data.toString().substring(0, 100),
@@ -591,7 +574,6 @@ mcpServer.tool("getPageTitle", "Get title of the current page", async () => {
 				const dataStr = data.toString();
 				// Check if message starts with "[Browser MC", if so, don't try to parse as JSON
 				if (dataStr.startsWith("[Browser MC")) {
-					console.info(`[Browser MCP] Received log message: ${dataStr}`);
 					return; // This is a log message, no need to parse as JSON
 				}
 
@@ -630,7 +612,7 @@ mcpServer.tool("getPageTitle", "Get title of the current page", async () => {
 			} catch (error) {
 				// Log parsing error, but don't interrupt the flow
 				console.error(
-					"[Browser MCP] Message parsing error:",
+					"[BCM] Message parsing error:",
 					error,
 					"Raw data:",
 					data.toString().substring(0, 100),
@@ -708,7 +690,6 @@ mcpServer.tool(
 					const dataStr = data.toString();
 					// Check if message starts with "[Browser MC", if so, don't try to parse as JSON
 					if (dataStr.startsWith("[Browser MC")) {
-						console.info(`[Browser MCP] Received log message: ${dataStr}`);
 						return; // This is a log message, no need to parse as JSON
 					}
 
@@ -749,7 +730,7 @@ mcpServer.tool(
 				} catch (error) {
 					// Log parsing error, but don't interrupt the flow
 					console.error(
-						"[Browser MCP] Message parsing error:",
+						"[BCM] Message parsing error:",
 						error,
 						"Raw data:",
 						data.toString().substring(0, 100),
@@ -823,14 +804,10 @@ mcpServer.tool(
 					const dataStr = data.toString();
 					// Check if message starts with "[Browser MC", if so, don't try to parse as JSON
 					if (dataStr.startsWith("[Browser MC")) {
-						console.info(`[Browser MCP] Received log message: ${dataStr}`);
 						return; // This is a log message, no need to parse as JSON
 					}
 
 					const message = JSON.parse(dataStr);
-					console.info(
-						`[Browser MCP] Received screenshot response, request ID: ${message.requestId}`,
-					);
 
 					// Check if it's the corresponding response
 					if (message.requestId === requestId) {
@@ -884,7 +861,7 @@ mcpServer.tool(
 									mkdirSync(saveDir, { recursive: true });
 								} catch (err) {
 									console.error(
-										"[Browser MCP] Failed to create screenshots directory:",
+										"[BCM] Failed to create screenshots directory:",
 										err,
 									);
 								}
@@ -899,9 +876,7 @@ mcpServer.tool(
 								// Save file
 								try {
 									writeFileSync(filePath, base64Data, "base64");
-									console.info(
-										`[Browser MCP] Screenshot saved to: ${filePath}`,
-									);
+									console.log(`[BCM] Screenshot saved to: ${filePath}`);
 
 									// Return success message and file path
 									resolve({
@@ -913,10 +888,7 @@ mcpServer.tool(
 										],
 									});
 								} catch (err) {
-									console.error(
-										"[Browser MCP] Failed to save screenshot:",
-										err,
-									);
+									console.error("[BCM] Failed to save screenshot:", err);
 									resolve({
 										content: [
 											{
@@ -943,10 +915,7 @@ mcpServer.tool(
 						}
 					}
 				} catch (error) {
-					console.error(
-						"[Browser MCP] Error parsing screenshot response:",
-						error,
-					);
+					console.error("[BCM] Error parsing screenshot response:", error);
 					// Continue listening, do not remove listener on parsing error
 				}
 			};
@@ -955,8 +924,8 @@ mcpServer.tool(
 			browserConnections[0].on("message", messageHandler);
 
 			// Send request to browser
-			console.info(
-				`[Browser MCP] Sending screenshot request, ID: ${requestId}, selector: ${selector}`,
+			console.log(
+				`[BCM] Sending screenshot request, ID: ${requestId}, selector: ${selector}`,
 			);
 			browserConnections[0].send(
 				JSON.stringify({
@@ -1008,7 +977,6 @@ mcpServer.tool("getPageURL", "Get URL of the current page", async () => {
 				const dataStr = data.toString();
 				// Check if message starts with "[Browser MC", if so, don't try to parse as JSON
 				if (dataStr.startsWith("[Browser MC")) {
-					console.info(`[Browser MCP] Received log message: ${dataStr}`);
 					return; // This is a log message, no need to parse as JSON
 				}
 
@@ -1047,7 +1015,7 @@ mcpServer.tool("getPageURL", "Get URL of the current page", async () => {
 			} catch (error) {
 				// Log parsing error, but don't interrupt the flow
 				console.error(
-					"[Browser MCP] Message parsing error:",
+					"[BCM] Message parsing error:",
 					error,
 					"Raw data:",
 					data.toString().substring(0, 100),
@@ -1125,7 +1093,6 @@ mcpServer.tool(
 					const dataStr = data.toString();
 					// Check if message starts with "[Browser MC", if so, don't try to parse as JSON
 					if (dataStr.startsWith("[Browser MC")) {
-						console.info(`[Browser MCP] Received log message: ${dataStr}`);
 						return; // This is a log message, no need to parse as JSON
 					}
 
@@ -1164,7 +1131,7 @@ mcpServer.tool(
 				} catch (error) {
 					// Log parsing error, but don't interrupt the flow
 					console.error(
-						"[Browser MCP] Message parsing error:",
+						"[BCM] Message parsing error:",
 						error,
 						"Raw data:",
 						data.toString().substring(0, 100),
@@ -1248,7 +1215,6 @@ mcpServer.tool(
 					const dataStr = data.toString();
 					// Check if message starts with "[Browser MC", if so, don't try to parse as JSON
 					if (dataStr.startsWith("[Browser MC")) {
-						console.info(`[Browser MCP] Received log message: ${dataStr}`);
 						return; // This is a log message, no need to parse as JSON
 					}
 
@@ -1287,7 +1253,7 @@ mcpServer.tool(
 				} catch (error) {
 					// Log parsing error, but don't interrupt the flow
 					console.error(
-						"[Browser MCP] Message parsing error:",
+						"[BCM] Message parsing error:",
 						error,
 						"Raw data:",
 						data.toString().substring(0, 100),
@@ -1313,35 +1279,33 @@ mcpServer.tool(
 
 // Handle process signals
 process.on("SIGINT", () => {
-	console.info("[Browser MCP] Received SIGINT signal");
 	cleanupAndExit(true);
 });
 
 process.on("SIGTERM", () => {
-	console.info("[Browser MCP] Received SIGTERM signal");
 	cleanupAndExit(true);
 });
 
 // Handle uncaught exceptions
 process.on("uncaughtException", (error) => {
-	console.error("[Browser MCP] Uncaught exception:", error);
+	console.error("[BCM] Uncaught exception:", error);
 	cleanupAndExit(true);
 });
 
 process.on("unhandledRejection", (reason) => {
-	console.error("[Browser MCP] Unhandled Promise rejection:", reason);
+	console.error("[BCM] Unhandled Promise rejection:", reason);
 	// Do not exit, just record
 });
 
 // Start server
 server.listen(PORT, () => {
-	console.info(`[Browser MCP] Server started, listening on port ${PORT}`);
+	console.log(`[BCM] Server started, listening on port ${PORT}`);
 });
 
 // Initialize MCP server
 // @ts-ignore - Use old version MCP SDK 1.5.0 API
 mcpServer.connect(transport).catch((error: Error) => {
-	console.error("[Browser MCP] MCP server initialization failed:", error);
+	console.error("[BCM] MCP server initialization failed:", error);
 	cleanupAndExit(true);
 });
 
@@ -1349,14 +1313,14 @@ mcpServer.connect(transport).catch((error: Error) => {
  * Clean up resources and exit
  */
 function cleanupAndExit(shouldExit = true) {
-	console.info("[Browser MCP] Closing server...");
+	console.log("[BCM] Closing server...");
 
 	// Close all WebSocket connections
 	for (const conn of browserConnections) {
 		try {
 			conn.close();
 		} catch (error) {
-			console.error("[Browser MCP] Error closing browser connection:", error);
+			console.error("[BCM] Error closing browser connection:", error);
 		}
 	}
 
@@ -1364,7 +1328,7 @@ function cleanupAndExit(shouldExit = true) {
 		try {
 			conn.close();
 		} catch (error) {
-			console.error("[Browser MCP] Error closing Cursor connection:", error);
+			console.error("[BCM] Error closing Cursor connection:", error);
 		}
 	}
 
@@ -1373,7 +1337,7 @@ function cleanupAndExit(shouldExit = true) {
 
 	// Close HTTP server
 	server.close(() => {
-		console.info("[Browser MCP] HTTP server closed");
+		console.log("[BCM] HTTP server closed");
 		if (shouldExit) {
 			process.exit(0);
 		}

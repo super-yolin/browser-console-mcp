@@ -56,11 +56,11 @@ class BrowserConsoleMCPServer {
 
 		// Start HTTP server
 		this.httpServer.listen(this.port, () => {
-			console.info(`[MCP Server] HTTP server started on port ${this.port}`);
-			console.info(
+			console.log(`[MCP Server] HTTP server started on port ${this.port}`);
+			console.log(
 				`[MCP Server] WebSocket server path: ws://localhost:${this.port}/ws`,
 			);
-			console.info(
+			console.log(
 				`[MCP Server] Static files will be redirected to port ${this.staticServer.getPort()}`,
 			);
 		});
@@ -74,7 +74,7 @@ class BrowserConsoleMCPServer {
 			const clientId = this.generateClientId();
 			this.clients.set(clientId, { id: clientId, ws });
 
-			console.info(`[MCP Server] Client ${clientId} connected`);
+			console.log(`[MCP Server] Client ${clientId} connected`);
 
 			ws.on("message", (data: Buffer) => {
 				try {
@@ -87,7 +87,7 @@ class BrowserConsoleMCPServer {
 
 			ws.on("close", () => {
 				this.clients.delete(clientId);
-				console.info(`[MCP Server] Client ${clientId} disconnected`);
+				console.log(`[MCP Server] Client ${clientId} disconnected`);
 			});
 
 			ws.on("error", (error: Error) => {
@@ -114,7 +114,7 @@ class BrowserConsoleMCPServer {
 		}
 
 		// Only log message type, not the full message content
-		console.info(
+		console.log(
 			`[MCP Server] Received message type ${message.type} from client ${clientId}`,
 		);
 
@@ -136,7 +136,7 @@ class BrowserConsoleMCPServer {
 			return;
 		}
 
-		console.info(`[MCP Server] Executing command: ${command}`);
+		console.log(`[MCP Server] Executing command: ${command}`);
 
 		exec(command, (error: Error | null, stdout: string, stderr: string) => {
 			if (error) {
@@ -190,7 +190,7 @@ class BrowserConsoleMCPServer {
 		this.httpServer.close();
 		this.wss.close();
 		this.staticServer.stop();
-		console.info("[MCP Server] Server closed");
+		console.log("[MCP Server] Server closed");
 	}
 }
 
@@ -200,7 +200,7 @@ server.start();
 
 // Handle process exit
 process.on("SIGINT", () => {
-	console.info("[MCP Server] Shutting down server...");
+	console.log("[MCP Server] Shutting down server...");
 	server.stop();
 	process.exit(0);
 });

@@ -16,35 +16,31 @@
 	async function loadHtml2Canvas() {
 		return new Promise((resolve, reject) => {
 			if (typeof html2canvas !== "undefined") {
-				console.info("[Browser MCP] html2canvas already loaded");
+				console.log("[BCM] html2canvas already loaded");
 				resolve();
 				return;
 			}
 
-			console.info("[Browser MCP] Loading html2canvas...");
+			console.log("[BCM] Loading html2canvas...");
 			const script = document.createElement("script");
 			// Try local path
 			script.src = "/html2canvas.min.js";
 			script.onload = () => {
-				console.info("[Browser MCP] html2canvas loaded successfully");
+				console.log("[BCM] html2canvas loaded successfully");
 				resolve();
 			};
 			script.onerror = () => {
 				// If local path fails, try alternative path
-				console.info(
-					"[Browser MCP] Trying alternative path for html2canvas...",
-				);
+				console.log("[BCM] Trying alternative path for html2canvas...");
 				const altScript = document.createElement("script");
 				altScript.src =
 					"https://html2canvas.hertzen.com/dist/html2canvas.min.js";
 				altScript.onload = () => {
-					console.info(
-						"[Browser MCP] html2canvas loaded from CDN successfully",
-					);
+					console.log("[BCM] html2canvas loaded from CDN successfully");
 					resolve();
 				};
 				altScript.onerror = (error) => {
-					console.error("[Browser MCP] Failed to load html2canvas:", error);
+					console.error("[BCM] Failed to load html2canvas:", error);
 					reject(new Error("Unable to load html2canvas"));
 				};
 				document.head.appendChild(altScript);
@@ -393,7 +389,7 @@
 				this.socket = new WebSocket(url);
 
 				this.socket.onopen = () => {
-					console.info("[Browser MCP] Connected to Cursor");
+					console.log("[BCM] Connected to Cursor");
 					this.connected = true;
 
 					// Send initialization and capability negotiation message
@@ -405,22 +401,22 @@
 						const message = JSON.parse(event.data);
 						this.handleMessage(message);
 					} catch (error) {
-						console.error("[Browser MCP] Message parsing error:", error);
+						console.error("[BCM] Message parsing error:", error);
 					}
 				};
 
 				this.socket.onclose = () => {
-					console.info("[Browser MCP] Connection closed");
+					console.log("[BCM] Connection closed");
 					this.connected = false;
 				};
 
 				this.socket.onerror = (error) => {
-					console.error("[Browser MCP] WebSocket error:", error);
+					console.error("[BCM] WebSocket error:", error);
 				};
 
 				return true;
 			} catch (error) {
-				console.error("[Browser MCP] Error initializing WebSocket:", error);
+				console.error("[BCM] Error initializing WebSocket:", error);
 				return false;
 			}
 		}
@@ -457,7 +453,7 @@
 			this.socket.send(JSON.stringify(message));
 
 			// Log
-			console.info("[Browser MCP] Initialization message sent");
+			console.log("[BCM] Initialization message sent");
 		}
 
 		/**
@@ -635,16 +631,10 @@
 					if (jsonMessage.method) {
 						// This is a request
 						this.handleRequest(jsonMessage);
-					} else if (
-						jsonMessage.result !== undefined ||
-						jsonMessage.error !== undefined
-					) {
-						// This is a response, currently not handled
-						console.info("[Browser MCP] Received response");
 					}
 				}
 			} catch (error) {
-				console.error("[Browser MCP] Message parsing error:", error.message);
+				console.error("[BCM] Message parsing error:", error.message);
 			}
 		}
 
@@ -657,7 +647,7 @@
 
 			// Handle initialization response
 			if (method === "initialize/result") {
-				console.info("[Browser MCP] Initialization successful");
+				console.log("[BCM] Initialization successful");
 				this.sendResponse(id, { success: true });
 				return;
 			}
@@ -703,7 +693,7 @@
 		 */
 		sendResponse(id, result) {
 			if (!this.connected || !this.socket) {
-				console.error("[Browser MCP] Not connected, cannot send response");
+				console.error("[BCM] Not connected, cannot send response");
 				return;
 			}
 
@@ -724,9 +714,7 @@
 		 */
 		sendErrorResponse(id, code, message) {
 			if (!this.connected || !this.socket) {
-				console.error(
-					"[Browser MCP] Not connected, cannot send error response",
-				);
+				console.error("[BCM] Not connected, cannot send error response");
 				return;
 			}
 
@@ -751,7 +739,7 @@
 		return window.browserMCP.initSocket(url);
 	};
 
-	console.info(
-		"[Browser MCP] MCP server initialized, use window.connectMCP(url) to connect to Cursor",
+	console.log(
+		"[BCM] MCP server initialized, use window.connectMCP(url) to connect to Cursor",
 	);
 })();

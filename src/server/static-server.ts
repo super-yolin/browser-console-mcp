@@ -178,7 +178,7 @@ mcp.reconnect();</code></pre>
 					Expires: "0",
 				});
 				res.end(fileContent);
-				console.info(
+				console.log(
 					`[Static Server] Successfully served static file: ${filePath}`,
 				);
 			} else {
@@ -198,10 +198,10 @@ mcp.reconnect();</code></pre>
 	 */
 	start(): void {
 		this.server.listen(this.port, () => {
-			console.info(
+			console.log(
 				`[Static Server] Server started, listening on port ${this.port}`,
 			);
-			console.info(
+			console.log(
 				`[Static Server] Client JS file URL: http://localhost:${this.port}/browser-console-mcp.js`,
 			);
 		});
@@ -212,7 +212,7 @@ mcp.reconnect();</code></pre>
 	 */
 	stop(): void {
 		this.server.close(() => {
-			console.info("[Static Server] Server closed");
+			console.log("[Static Server] Server closed");
 		});
 	}
 

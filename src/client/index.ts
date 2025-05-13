@@ -77,7 +77,7 @@ class BrowserConsoleMCP {
 
 					this.ws.onopen = () => {
 						this.connected = true;
-						console.info("%c[MCP Client] Connected to server", "color: green");
+						console.log("%c[MCP Client] Connected to server", "color: green");
 						this.registerConsoleCommands();
 					};
 
@@ -92,7 +92,7 @@ class BrowserConsoleMCP {
 
 					this.ws.onclose = () => {
 						this.connected = false;
-						console.info(
+						console.log(
 							"%c[MCP Client] Disconnected from server",
 							"color: orange",
 						);
@@ -118,37 +118,37 @@ class BrowserConsoleMCP {
 			if (
 				typeof (window as WindowWithHtml2Canvas).html2canvas !== "undefined"
 			) {
-				console.info("[MCP Client] html2canvas already loaded");
+				console.log("[MCP Client] html2canvas already loaded");
 				resolve(true);
 				return;
 			}
 
-			console.info("[MCP Client] Loading html2canvas...");
+			console.log("[MCP Client] Loading html2canvas...");
 
 			// Prioritize loading html2canvas from CDN
 			const script = document.createElement("script");
 			script.src = "https://html2canvas.hertzen.com/dist/html2canvas.min.js";
 			script.onload = () => {
-				console.info("[MCP Client] html2canvas loaded from CDN");
+				console.log("[MCP Client] html2canvas loaded from CDN");
 				resolve(true);
 			};
 			script.onerror = () => {
 				// If CDN fails, try local path
-				console.info("[MCP Client] Trying local path for html2canvas...");
+				console.log("[MCP Client] Trying local path for html2canvas...");
 				const localScript = document.createElement("script");
 				localScript.src = "/html2canvas.min.js";
 				localScript.onload = () => {
-					console.info("[MCP Client] html2canvas loaded from local path");
+					console.log("[MCP Client] html2canvas loaded from local path");
 					resolve(true);
 				};
 				localScript.onerror = (err) => {
 					// Try using unpkg CDN
-					console.info("[MCP Client] Trying unpkg CDN for html2canvas...");
+					console.log("[MCP Client] Trying unpkg CDN for html2canvas...");
 					const unpkgScript = document.createElement("script");
 					unpkgScript.src =
 						"https://unpkg.com/html2canvas/dist/html2canvas.min.js";
 					unpkgScript.onload = () => {
-						console.info("[MCP Client] html2canvas loaded from unpkg CDN");
+						console.log("[MCP Client] html2canvas loaded from unpkg CDN");
 						resolve(true);
 					};
 					unpkgScript.onerror = (err) => {
@@ -454,20 +454,17 @@ class BrowserConsoleMCP {
 		// Handle other message types
 		switch (message.type) {
 			case "command_result":
-				console.info(
-					`%c[MCP Server] ${message.payload?.result}`,
-					"color: blue",
-				);
+				console.log(`%c[MCP Server] ${message.payload?.result}`, "color: blue");
 				break;
 			case "error":
 				console.error(`[MCP Server] Error: ${message.payload?.error}`);
 				break;
 			case "connection_status":
-				console.info(`%c[MCP Server] ${message.message}`, "color: green");
+				console.log(`%c[MCP Server] ${message.message}`, "color: green");
 				break;
 			default:
 				// Only log message type, not full message content
-				console.info(`[MCP Server] Received message type: ${message.type}`);
+				console.log(`[MCP Server] Received message type: ${message.type}`);
 		}
 	}
 
@@ -560,7 +557,7 @@ MCP Client Commands:
 			},
 		};
 
-		console.info(
+		console.log(
 			"%c[MCP Client] Console commands registered, use mcp.help() to see available commands",
 			"color: green",
 		);
