@@ -1,0 +1,61 @@
+{
+	"name": "browser-console-mcp",
+	"version": "1.0.1",
+	"description": "MCP client for browser console and server for Cursor",
+	"main": "dist/server/index.js",
+	"type": "module",
+	"bin": {
+		"browser-console-mcp": "./bin/browser-mcp-server.js"
+	},
+	"scripts": {
+		"build": "tsc",
+		"build:client": "rollup -c",
+		"build:browser": "rollup -c rollup.browser.config.js",
+		"copy:html2canvas": "node bin/copy-html2canvas.js",
+		"build:all": "pnpm build && pnpm build:client && pnpm build:browser && pnpm copy:html2canvas",
+		"dev": "tsc --watch",
+		"start": "node dist/server/index.js",
+		"start:browser": "node dist/browser/index.js",
+		"prepare": "pnpm build:all && mkdir -p bin"
+	},
+	"keywords": [
+		"mcp",
+		"browser",
+		"console",
+		"cursor",
+		"ai",
+		"claude",
+		"anthropic",
+		"automation"
+	],
+	"author": "super-yolin",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/super-yolin/browser-console-mcp.git"
+	},
+	"bugs": {
+		"url": "https://github.com/super-yolin/browser-console-mcp/issues"
+	},
+	"homepage": "https://github.com/super-yolin/browser-console-mcp#readme",
+	"engines": {
+		"node": ">=16.0.0"
+	},
+	"devDependencies": {
+		"@rollup/plugin-commonjs": "^25.0.7",
+		"@rollup/plugin-node-resolve": "^15.2.3",
+		"@rollup/plugin-typescript": "^11.1.6",
+		"@types/node": "^20.17.46",
+		"@types/ws": "^8.18.1",
+		"rollup": "^4.12.1",
+		"rollup-plugin-terser": "^7.0.2",
+		"tslib": "^2.8.1",
+		"typescript": "^5.4.2"
+	},
+	"dependencies": {
+		"@modelcontextprotocol/sdk": "^1.5.0",
+		"html2canvas": "^1.4.1",
+		"ws": "^8.16.0",
+		"zod": "^3.24.4"
+	}
+}

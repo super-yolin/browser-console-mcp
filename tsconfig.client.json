@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "outDir": "./dist/client",
+    "rootDir": "./src/client"
+  },
+  "include": ["src/client/**/*"],
+  "exclude": ["node_modules", "dist"]
+} 
