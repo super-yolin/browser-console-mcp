@@ -398,19 +398,8 @@
 
 				this.socket.onmessage = (event) => {
 					try {
-						// Add pre-check to ensure only valid JSON messages are parsed
-						const dataStr = event.data.toString().trim();
-						// Check if it looks like JSON (starts with { or [)
-						if (dataStr.startsWith("{") || dataStr.startsWith("[")) {
-							const message = JSON.parse(dataStr);
-							this.handleMessage(message);
-						} else {
-							// Non-JSON message, can be ignored or logged
-							console.log(
-								"[BCM] Ignoring non-JSON message:",
-								dataStr.substring(0, 50) + (dataStr.length > 50 ? "..." : ""),
-							);
-						}
+						const message = JSON.parse(event.data);
+						this.handleMessage(message);
 					} catch (error) {
 						console.error("[BCM] Message parsing error:", error);
 					}

@@ -247,33 +247,21 @@ wss.on("connection", (ws, req) => {
 		);
 
 		// Handle browser messages
-		ws.on("message", (data: Buffer) => {
+		ws.on("message", (data) => {
 			try {
-				// Add pre-check to ensure only valid JSON messages are parsed
-				const dataStr = data.toString().trim();
-				// Check if it looks like JSON (starts with { or [)
-				if (dataStr.startsWith("{") || dataStr.startsWith("[")) {
-					const message = JSON.parse(dataStr);
-					// Forward message to Cursor
-					if (cursorConnections.length > 0) {
-						for (const conn of cursorConnections) {
-							conn.send(dataStr);
-						}
+				// Forward message to Cursor
+				if (cursorConnections.length > 0) {
+					for (const conn of cursorConnections) {
+						conn.send(data.toString());
 					}
-				} else {
-					// Non-JSON message, can be ignored or logged
-					console.log(
-						`[BCM] Ignoring non-JSON message from browser: ${dataStr.substring(0, 50)}${dataStr.length > 50 ? "..." : ""}`,
-					);
 				}
 			} catch (error) {
-				console.error("[BCM] Message parsing error:", error);
+				console.error("[BCM] Error parsing browser message:", error);
 			}
 		});
 
 		// Handle connection closure
 		ws.on("close", () => {
-			console.log("[BCM] Browser connection closed");
 			const index = browserConnections.indexOf(ws);
 			if (index !== -1) {
 				browserConnections.splice(index, 1);
@@ -281,37 +269,26 @@ wss.on("connection", (ws, req) => {
 		});
 	} else if (path === "/cursor") {
 		// Cursor connection
-		console.log("[BCM] New Cursor connection");
 		cursorConnections.push(ws);
 
 		// Handle Cursor messages
-		ws.on("message", (data: Buffer) => {
+		ws.on("message", (data) => {
 			try {
-				// Add pre-check to ensure only valid JSON messages are parsed
-				const dataStr = data.toString().trim();
-				// Check if it looks like JSON (starts with { or [)
-				if (dataStr.startsWith("{") || dataStr.startsWith("[")) {
-					const message = JSON.parse(dataStr);
-					// Forward message to browser
-					if (browserConnections.length > 0) {
-						for (const conn of browserConnections) {
-							conn.send(dataStr);
-						}
+				const message = JSON.parse(data.toString());
+
+				// Forward message to browser
+				if (browserConnections.length > 0) {
+					for (const conn of browserConnections) {
+						conn.send(data.toString());
 					}
-				} else {
-					// Non-JSON message, can be ignored or logged
-					console.log(
-						`[BCM] Ignoring non-JSON message from cursor: ${dataStr.substring(0, 50)}${dataStr.length > 50 ? "..." : ""}`,
-					);
 				}
 			} catch (error) {
-				console.error("[BCM] Message parsing error:", error);
+				console.error("[BCM] Error parsing Cursor message:", error);
 			}
 		});
 
 		// Handle connection closure
 		ws.on("close", () => {
-			console.log("[BCM] Cursor connection closed");
 			const index = cursorConnections.indexOf(ws);
 			if (index !== -1) {
 				cursorConnections.splice(index, 1);
@@ -904,7 +881,6 @@ mcpServer.tool(
 								// Save file
 								try {
 									writeFileSync(filePath, base64Data, "base64");
-									console.log(`[BCM] Screenshot saved to: ${filePath}`);
 
 									// Return success message and file path
 									resolve({
