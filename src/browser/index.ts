@@ -247,16 +247,27 @@ wss.on("connection", (ws, req) => {
 		);
 
 		// Handle browser messages
-		ws.on("message", (data) => {
+		ws.on("message", (data: Buffer) => {
 			try {
-				// Forward message to Cursor
-				if (cursorConnections.length > 0) {
-					for (const conn of cursorConnections) {
-						conn.send(data.toString());
+				// Add pre-check to ensure only valid JSON messages are parsed
+				const dataStr = data.toString().trim();
+				// Check if it looks like JSON (starts with { or [)
+				if (dataStr.startsWith("{") || dataStr.startsWith("[")) {
+					const message = JSON.parse(dataStr);
+					// Forward message to Cursor
+					if (cursorConnections.length > 0) {
+						for (const conn of cursorConnections) {
+							conn.send(dataStr);
+						}
 					}
+				} else {
+					// Non-JSON message, can be ignored or logged
+					console.log(
+						`[BCM] Ignoring non-JSON message from browser: ${dataStr.substring(0, 50)}${dataStr.length > 50 ? "..." : ""}`,
+					);
 				}
 			} catch (error) {
-				console.error("[BCM] Error parsing browser message:", error);
+				console.error("[BCM] Message parsing error:", error);
 			}
 		});
 
@@ -274,18 +285,27 @@ wss.on("connection", (ws, req) => {
 		cursorConnections.push(ws);
 
 		// Handle Cursor messages
-		ws.on("message", (data) => {
+		ws.on("message", (data: Buffer) => {
 			try {
-				const message = JSON.parse(data.toString());
-
-				// Forward message to browser
-				if (browserConnections.length > 0) {
-					for (const conn of browserConnections) {
-						conn.send(data.toString());
+				// Add pre-check to ensure only valid JSON messages are parsed
+				const dataStr = data.toString().trim();
+				// Check if it looks like JSON (starts with { or [)
+				if (dataStr.startsWith("{") || dataStr.startsWith("[")) {
+					const message = JSON.parse(dataStr);
+					// Forward message to browser
+					if (browserConnections.length > 0) {
+						for (const conn of browserConnections) {
+							conn.send(dataStr);
+						}
 					}
+				} else {
+					// Non-JSON message, can be ignored or logged
+					console.log(
+						`[BCM] Ignoring non-JSON message from cursor: ${dataStr.substring(0, 50)}${dataStr.length > 50 ? "..." : ""}`,
+					);
 				}
 			} catch (error) {
-				console.error("[BCM] Error parsing Cursor message:", error);
+				console.error("[BCM] Message parsing error:", error);
 			}
 		});
 
