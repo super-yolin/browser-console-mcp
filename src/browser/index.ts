@@ -73,7 +73,6 @@ const server = createServer((req, res) => {
 			const content = readFileSync(filePath, "utf8");
 			res.end(content);
 		} catch (error) {
-			console.error("[BCM] Error reading file:", error);
 			res.writeHead(500);
 			res.end("Internal Server Error");
 		}
@@ -87,7 +86,6 @@ const server = createServer((req, res) => {
 			const content = readFileSync(filePath, "utf8");
 			res.end(content);
 		} catch (error) {
-			console.error("[BCM] Error reading file:", error);
 			res.writeHead(500);
 			res.end("Internal Server Error");
 		}
@@ -102,7 +100,6 @@ const server = createServer((req, res) => {
 			const content = readFileSync(filePath, "utf8");
 			res.end(content);
 		} catch (error) {
-			console.error("[BCM] Error reading file:", error);
 			res.writeHead(500);
 			res.end("Internal Server Error");
 		}
@@ -117,7 +114,6 @@ const server = createServer((req, res) => {
 			const content = readFileSync(filePath, "utf8");
 			res.end(content);
 		} catch (error) {
-			console.error("[BCM] Error reading file:", error);
 			res.writeHead(500);
 			res.end("Internal Server Error");
 		}
@@ -261,19 +257,12 @@ wss.on("connection", (ws, req) => {
 						}
 					}
 				} else {
-					// Non-JSON message, can be ignored or logged
-					console.log(
-						`[BCM] Ignoring non-JSON message from browser: ${dataStr.substring(0, 50)}${dataStr.length > 50 ? "..." : ""}`,
-					);
 				}
-			} catch (error) {
-				console.error("[BCM] Message parsing error:", error);
-			}
+			} catch (error) {}
 		});
 
 		// Handle connection closure
 		ws.on("close", () => {
-			console.log("[BCM] Browser connection closed");
 			const index = browserConnections.indexOf(ws);
 			if (index !== -1) {
 				browserConnections.splice(index, 1);
@@ -281,7 +270,6 @@ wss.on("connection", (ws, req) => {
 		});
 	} else if (path === "/cursor") {
 		// Cursor connection
-		console.log("[BCM] New Cursor connection");
 		cursorConnections.push(ws);
 
 		// Handle Cursor messages
@@ -299,19 +287,12 @@ wss.on("connection", (ws, req) => {
 						}
 					}
 				} else {
-					// Non-JSON message, can be ignored or logged
-					console.log(
-						`[BCM] Ignoring non-JSON message from cursor: ${dataStr.substring(0, 50)}${dataStr.length > 50 ? "..." : ""}`,
-					);
 				}
-			} catch (error) {
-				console.error("[BCM] Message parsing error:", error);
-			}
+			} catch (error) {}
 		});
 
 		// Handle connection closure
 		ws.on("close", () => {
-			console.log("[BCM] Cursor connection closed");
 			const index = cursorConnections.indexOf(ws);
 			if (index !== -1) {
 				cursorConnections.splice(index, 1);
@@ -435,15 +416,7 @@ mcpServer.tool(
 							});
 						}
 					}
-				} catch (error) {
-					// Log parsing error, but don't interrupt the flow
-					console.error(
-						"[BCM] Message parsing error:",
-						error,
-						"Raw data:",
-						data.toString().substring(0, 100),
-					);
-				}
+				} catch (error) {}
 			};
 
 			// Add message handler
@@ -538,15 +511,7 @@ mcpServer.tool(
 							});
 						}
 					}
-				} catch (error) {
-					// Log parsing error, but don't interrupt the flow
-					console.error(
-						"[BCM] Message parsing error:",
-						error,
-						"Raw data:",
-						data.toString().substring(0, 100),
-					);
-				}
+				} catch (error) {}
 			};
 
 			// Add message handler
@@ -637,15 +602,7 @@ mcpServer.tool("getPageTitle", "Get title of the current page", async () => {
 						});
 					}
 				}
-			} catch (error) {
-				// Log parsing error, but don't interrupt the flow
-				console.error(
-					"[BCM] Message parsing error:",
-					error,
-					"Raw data:",
-					data.toString().substring(0, 100),
-				);
-			}
+			} catch (error) {}
 		};
 
 		// Add message handler
@@ -755,15 +712,7 @@ mcpServer.tool(
 							});
 						}
 					}
-				} catch (error) {
-					// Log parsing error, but don't interrupt the flow
-					console.error(
-						"[BCM] Message parsing error:",
-						error,
-						"Raw data:",
-						data.toString().substring(0, 100),
-					);
-				}
+				} catch (error) {}
 			};
 
 			// Add message handler
@@ -887,12 +836,7 @@ mcpServer.tool(
 								const saveDir = join(homeDir, "Downloads", "mcp-screenshots");
 								try {
 									mkdirSync(saveDir, { recursive: true });
-								} catch (err) {
-									console.error(
-										"[BCM] Failed to create screenshots directory:",
-										err,
-									);
-								}
+								} catch (err) {}
 
 								// Generate filename
 								const timestamp = new Date()
@@ -904,7 +848,6 @@ mcpServer.tool(
 								// Save file
 								try {
 									writeFileSync(filePath, base64Data, "base64");
-									console.log(`[BCM] Screenshot saved to: ${filePath}`);
 
 									// Return success message and file path
 									resolve({
@@ -916,7 +859,6 @@ mcpServer.tool(
 										],
 									});
 								} catch (err) {
-									console.error("[BCM] Failed to save screenshot:", err);
 									resolve({
 										content: [
 											{
@@ -943,7 +885,6 @@ mcpServer.tool(
 						}
 					}
 				} catch (error) {
-					console.error("[BCM] Error parsing screenshot response:", error);
 					// Continue listening, do not remove listener on parsing error
 				}
 			};
@@ -951,10 +892,6 @@ mcpServer.tool(
 			// Add message handler
 			browserConnections[0].on("message", messageHandler);
 
-			// Send request to browser
-			console.log(
-				`[BCM] Sending screenshot request, ID: ${requestId}, selector: ${selector}`,
-			);
 			browserConnections[0].send(
 				JSON.stringify({
 					type: "capture_screenshot",
@@ -1042,12 +979,6 @@ mcpServer.tool("getPageURL", "Get URL of the current page", async () => {
 				}
 			} catch (error) {
 				// Log parsing error, but don't interrupt the flow
-				console.error(
-					"[BCM] Message parsing error:",
-					error,
-					"Raw data:",
-					data.toString().substring(0, 100),
-				);
 			}
 		};
 
@@ -1158,12 +1089,6 @@ mcpServer.tool(
 					}
 				} catch (error) {
 					// Log parsing error, but don't interrupt the flow
-					console.error(
-						"[BCM] Message parsing error:",
-						error,
-						"Raw data:",
-						data.toString().substring(0, 100),
-					);
 				}
 			};
 
@@ -1280,12 +1205,6 @@ mcpServer.tool(
 					}
 				} catch (error) {
 					// Log parsing error, but don't interrupt the flow
-					console.error(
-						"[BCM] Message parsing error:",
-						error,
-						"Raw data:",
-						data.toString().substring(0, 100),
-					);
 				}
 			};
 
@@ -1316,24 +1235,19 @@ process.on("SIGTERM", () => {
 
 // Handle uncaught exceptions
 process.on("uncaughtException", (error) => {
-	console.error("[BCM] Uncaught exception:", error);
 	cleanupAndExit(true);
 });
 
 process.on("unhandledRejection", (reason) => {
-	console.error("[BCM] Unhandled Promise rejection:", reason);
 	// Do not exit, just record
 });
 
 // Start server
-server.listen(PORT, () => {
-	console.log(`[BCM] Server started, listening on port ${PORT}`);
-});
+server.listen(PORT, () => {});
 
 // Initialize MCP server
 // @ts-ignore - Use old version MCP SDK 1.5.0 API
 mcpServer.connect(transport).catch((error: Error) => {
-	console.error("[BCM] MCP server initialization failed:", error);
 	cleanupAndExit(true);
 });
 
@@ -1345,17 +1259,13 @@ function cleanupAndExit(shouldExit = true) {
 	for (const conn of browserConnections) {
 		try {
 			conn.close();
-		} catch (error) {
-			console.error("[BCM] Error closing browser connection:", error);
-		}
+		} catch (error) {}
 	}
 
 	for (const conn of cursorConnections) {
 		try {
 			conn.close();
-		} catch (error) {
-			console.error("[BCM] Error closing Cursor connection:", error);
-		}
+		} catch (error) {}
 	}
 
 	// Close WebSocket server
