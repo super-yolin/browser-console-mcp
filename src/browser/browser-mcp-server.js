@@ -16,24 +16,31 @@
 	async function loadHtml2Canvas() {
 		return new Promise((resolve, reject) => {
 			if (typeof html2canvas !== "undefined") {
+				console.log("[BCM] html2canvas already loaded");
 				resolve();
 				return;
 			}
 
+			console.log("[BCM] Loading html2canvas...");
 			const script = document.createElement("script");
 			// Try local path
 			script.src = "/html2canvas.min.js";
 			script.onload = () => {
+				console.log("[BCM] html2canvas loaded successfully");
 				resolve();
 			};
 			script.onerror = () => {
+				// If local path fails, try alternative path
+				console.log("[BCM] Trying alternative path for html2canvas...");
 				const altScript = document.createElement("script");
 				altScript.src =
 					"https://html2canvas.hertzen.com/dist/html2canvas.min.js";
 				altScript.onload = () => {
+					console.log("[BCM] html2canvas loaded from CDN successfully");
 					resolve();
 				};
 				altScript.onerror = (error) => {
+					console.error("[BCM] Failed to load html2canvas:", error);
 					reject(new Error("Unable to load html2canvas"));
 				};
 				document.head.appendChild(altScript);
@@ -382,6 +389,7 @@
 				this.socket = new WebSocket(url);
 
 				this.socket.onopen = () => {
+					console.log("[BCM] Connected to Cursor");
 					this.connected = true;
 
 					// Send initialization and capability negotiation message
@@ -397,11 +405,19 @@
 							const message = JSON.parse(dataStr);
 							this.handleMessage(message);
 						} else {
+							// Non-JSON message, can be ignored or logged
+							console.log(
+								"[BCM] Ignoring non-JSON message:",
+								dataStr.substring(0, 50) + (dataStr.length > 50 ? "..." : ""),
+							);
 						}
-					} catch (error) {}
+					} catch (error) {
+						console.error("[BCM] Message parsing error:", error);
+					}
 				};
 
 				this.socket.onclose = () => {
+					console.log("[BCM] Connection closed");
 					this.connected = false;
 				};
 
@@ -411,6 +427,7 @@
 
 				return true;
 			} catch (error) {
+				console.error("[BCM] Error initializing WebSocket:", error);
 				return false;
 			}
 		}
@@ -445,6 +462,9 @@
 
 			// Send message
 			this.socket.send(JSON.stringify(message));
+
+			// Log
+			console.log("[BCM] Initialization message sent");
 		}
 
 		/**
@@ -624,7 +644,9 @@
 						this.handleRequest(jsonMessage);
 					}
 				}
-			} catch (error) {}
+			} catch (error) {
+				console.error("[BCM] Message parsing error:", error.message);
+			}
 		}
 
 		/**
@@ -636,6 +658,7 @@
 
 			// Handle initialization response
 			if (method === "initialize/result") {
+				console.log("[BCM] Initialization successful");
 				this.sendResponse(id, { success: true });
 				return;
 			}
@@ -681,6 +704,7 @@
 		 */
 		sendResponse(id, result) {
 			if (!this.connected || !this.socket) {
+				console.error("[BCM] Not connected, cannot send response");
 				return;
 			}
 
@@ -701,6 +725,7 @@
 		 */
 		sendErrorResponse(id, code, message) {
 			if (!this.connected || !this.socket) {
+				console.error("[BCM] Not connected, cannot send error response");
 				return;
 			}
 
@@ -724,4 +749,8 @@
 	window.connectMCP = (url = "ws://localhost:9000") => {
 		return window.browserMCP.initSocket(url);
 	};
+
+	console.log(
+		"[BCM] MCP server initialized, use window.connectMCP(url) to connect to Cursor",
+	);
 })();
