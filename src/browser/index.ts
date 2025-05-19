@@ -296,6 +296,14 @@ wss.on("connection", (ws, req) => {
 			if (index !== -1) {
 				cursorConnections.splice(index, 1);
 			}
+
+			// Check if all Cursor connections are closed
+			if (cursorConnections.length === 0) {
+				// Wait 2 seconds before shutting down to allow any pending operations to complete
+				setTimeout(() => {
+					cleanupAndExit(true);
+				}, 2000);
+			}
 		});
 	}
 });
@@ -1335,7 +1343,6 @@ function cleanupAndExit(shouldExit = true) {
 
 	// Close HTTP server
 	server.close(() => {
-		console.log("[BCM] HTTP server closed");
 		if (shouldExit) {
 			process.exit(0);
 		}
