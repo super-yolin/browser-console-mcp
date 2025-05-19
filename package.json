@@ -1,6 +1,6 @@
 {
 	"name": "browser-console-mcp",
-	"version": "1.0.5",
+	"version": "1.0.6",
 	"description": "MCP client for browser console and server for Cursor",
 	"main": "dist/server/index.js",
 	"type": "module",
