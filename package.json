@@ -1,8 +1,8 @@
 {
 	"name": "browser-console-mcp",
-	"version": "1.0.9",
-	"description": "MCP client for browser console and server for Cursor",
-	"main": "dist/server/index.js",
+	"version": "1.1.0",
+	"description": "Let your AI assistant control the browser via MCP",
+	"main": "dist/browser/index.js",
 	"type": "module",
 	"bin": {
 		"browser-console-mcp": "./bin/browser-mcp-server.js"

@@ -49,6 +49,10 @@ pnpm-debug.log*
 # Other
 .DS_Store
 Thumbs.db
+.omc/
+
+# Legacy server (not used at runtime)
+dist/server/
 
 # Source maps
 *.map
