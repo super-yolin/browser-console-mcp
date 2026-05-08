@@ -21,6 +21,10 @@ interface Client {
 }
 
 class BrowserConsoleMCPServer {
+	private static readonly ALLOWED_COMMANDS = [
+		"ls", "pwd", "echo", "cat", "grep", "find", "node", "npm", "npx", "git",
+	];
+
 	private wss: WebSocketServer;
 	private clients: Map<string, Client> = new Map();
 	private port: number;
@@ -133,6 +137,15 @@ class BrowserConsoleMCPServer {
 	private executeCommand(client: Client, command: string): void {
 		if (!command) {
 			this.sendErrorToClient(client, "Command is empty");
+			return;
+		}
+
+		const commandName = command.split(" ")[0] ?? "";
+		const allowed = BrowserConsoleMCPServer.ALLOWED_COMMANDS.some(
+			(prefix) => commandName === prefix,
+		);
+		if (!allowed) {
+			this.sendErrorToClient(client, `Command not allowed: '${commandName}'. Only these commands are permitted: ${BrowserConsoleMCPServer.ALLOWED_COMMANDS.join(", ")}`);
 			return;
 		}
 

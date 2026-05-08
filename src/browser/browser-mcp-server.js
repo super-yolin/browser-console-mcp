@@ -357,6 +357,61 @@
 		},
 	};
 
+	// Dispatch table for typed browser commands
+	const MESSAGE_HANDLERS = {
+		execute_js: async (msg) => {
+			const result = new Function(msg.code || "return null;")();
+			return { result };
+		},
+		get_page_html: async () => ({ html: document.documentElement.outerHTML }),
+		get_page_title: async () => ({ title: document.title }),
+		get_elements: async (msg) => {
+			const elements = [...document.querySelectorAll(msg.selector)];
+			return {
+				elements: elements.map((el) => ({
+					tagName: el.tagName,
+					id: el.id,
+					className: el.className,
+					textContent: el.textContent.trim().substring(0, 500),
+					attributes: [...el.attributes].reduce((attrs, attr) => {
+						attrs[attr.name] = attr.value;
+						return attrs;
+					}, {}),
+				})),
+			};
+		},
+		capture_screenshot: async (msg) => {
+			if (typeof html2canvas === "undefined") {
+				await loadHtml2Canvas();
+				if (typeof html2canvas === "undefined") {
+					throw new Error("html2canvas not loaded, cannot take screenshot");
+				}
+			}
+			const selector = msg.selector || "body";
+			const element = document.querySelector(selector);
+			if (!element) throw new Error(`Element not found: ${selector}`);
+			const canvas = await html2canvas(element);
+			return { imageDataUrl: canvas.toDataURL("image/png") };
+		},
+		get_page_url: async () => ({ url: window.location.href }),
+		click_element: async (msg) => {
+			const element = document.querySelector(msg.selector);
+			if (!element) throw new Error(`Element not found: ${msg.selector}`);
+			element.click();
+			return { success: true, message: `Element clicked successfully: ${msg.selector}` };
+		},
+		input_text: async (msg) => {
+			const input = document.querySelector(msg.selector);
+			if (!input) throw new Error(`Input field not found: ${msg.selector}`);
+			if (input.tagName !== "INPUT" && input.tagName !== "TEXTAREA") {
+				throw new Error(`Selected element is not an input field: ${input.tagName}`);
+			}
+			input.value = msg.text;
+			input.dispatchEvent(new Event("input", { bubbles: true }));
+			return { success: true, message: `Text entered successfully to: ${msg.selector}` };
+		},
+	};
+
 	// MCP server class
 	class BrowserMCPServer {
 		constructor() {
@@ -462,176 +517,23 @@
 		 */
 		async handleMessage(message) {
 			try {
-				// Parse message
-				const jsonMessage =
-					typeof message === "string" ? JSON.parse(message) : message;
+				const jsonMessage = typeof message === "string" ? JSON.parse(message) : message;
 
-				// Handle specific type requests
-				if (jsonMessage.type === "execute_js" && jsonMessage.code) {
-					// Execute JavaScript code
+				// Handle typed browser commands via dispatch table
+				const handler = MESSAGE_HANDLERS[jsonMessage.type];
+				if (handler && jsonMessage.requestId) {
 					try {
-						const result = new Function(jsonMessage.code || "return null;")();
-						this.sendResponse(jsonMessage.requestId, { result });
+						const result = await handler(jsonMessage);
+						this.sendResponse(jsonMessage.requestId, result);
 					} catch (error) {
 						this.sendResponse(jsonMessage.requestId, { error: error.message });
 					}
 					return;
 				}
 
-				if (jsonMessage.type === "get_page_html") {
-					// Get page HTML
-					try {
-						const html = document.documentElement.outerHTML;
-						this.sendResponse(jsonMessage.requestId, { html });
-					} catch (error) {
-						this.sendResponse(jsonMessage.requestId, { error: error.message });
-					}
-					return;
-				}
-
-				if (jsonMessage.type === "get_page_title") {
-					// Get page title
-					try {
-						const title = document.title;
-						this.sendResponse(jsonMessage.requestId, { title });
-					} catch (error) {
-						this.sendResponse(jsonMessage.requestId, { error: error.message });
-					}
-					return;
-				}
-
-				if (jsonMessage.type === "get_elements" && jsonMessage.selector) {
-					// Get elements
-					try {
-						const elements = [
-							...document.querySelectorAll(jsonMessage.selector),
-						];
-						const result = elements.map((el) => ({
-							tagName: el.tagName,
-							id: el.id,
-							className: el.className,
-							textContent: el.textContent.trim().substring(0, 500),
-							attributes: [...el.attributes].reduce((attrs, attr) => {
-								attrs[attr.name] = attr.value;
-								return attrs;
-							}, {}),
-						}));
-						this.sendResponse(jsonMessage.requestId, { elements: result });
-					} catch (error) {
-						this.sendResponse(jsonMessage.requestId, { error: error.message });
-					}
-					return;
-				}
-
-				if (jsonMessage.type === "capture_screenshot") {
-					// Capture page screenshot
-					try {
-						// Ensure html2canvas is loaded
-						if (typeof html2canvas === "undefined") {
-							// Try reloading
-							await loadHtml2Canvas();
-
-							// Check again
-							if (typeof html2canvas === "undefined") {
-								throw new Error(
-									"html2canvas not loaded, cannot take screenshot",
-								);
-							}
-						}
-
-						const selector = jsonMessage.selector || "body";
-						const element = document.querySelector(selector);
-
-						if (!element) {
-							throw new Error(`Element not found: ${selector}`);
-						}
-
-						html2canvas(element)
-							.then((canvas) => {
-								const dataUrl = canvas.toDataURL("image/png");
-								this.sendResponse(jsonMessage.requestId, {
-									imageDataUrl: dataUrl,
-								});
-							})
-							.catch((error) => {
-								this.sendResponse(jsonMessage.requestId, {
-									error: error.message,
-								});
-							});
-					} catch (error) {
-						this.sendResponse(jsonMessage.requestId, { error: error.message });
-					}
-					return;
-				}
-
-				if (jsonMessage.type === "get_page_url") {
-					// Get page URL
-					try {
-						const url = window.location.href;
-						this.sendResponse(jsonMessage.requestId, { url });
-					} catch (error) {
-						this.sendResponse(jsonMessage.requestId, { error: error.message });
-					}
-					return;
-				}
-
-				if (jsonMessage.type === "click_element" && jsonMessage.selector) {
-					// Click element
-					try {
-						const element = document.querySelector(jsonMessage.selector);
-
-						if (!element) {
-							throw new Error(`Element not found: ${jsonMessage.selector}`);
-						}
-
-						element.click();
-						this.sendResponse(jsonMessage.requestId, {
-							success: true,
-							message: `Element clicked successfully: ${jsonMessage.selector}`,
-						});
-					} catch (error) {
-						this.sendResponse(jsonMessage.requestId, { error: error.message });
-					}
-					return;
-				}
-
-				if (
-					jsonMessage.type === "input_text" &&
-					jsonMessage.selector &&
-					jsonMessage.text !== undefined
-				) {
-					// Input text
-					try {
-						const input = document.querySelector(jsonMessage.selector);
-
-						if (!input) {
-							throw new Error(`Input field not found: ${jsonMessage.selector}`);
-						}
-
-						if (input.tagName !== "INPUT" && input.tagName !== "TEXTAREA") {
-							throw new Error(
-								`Selected element is not an input field: ${input.tagName}`,
-							);
-						}
-
-						input.value = jsonMessage.text;
-						input.dispatchEvent(new Event("input", { bubbles: true }));
-						this.sendResponse(jsonMessage.requestId, {
-							success: true,
-							message: `Text entered successfully to: ${jsonMessage.selector}`,
-						});
-					} catch (error) {
-						this.sendResponse(jsonMessage.requestId, { error: error.message });
-					}
-					return;
-				}
-
-				// Handle RPC requests
-				if (jsonMessage.jsonrpc === RPC_VERSION) {
-					if (jsonMessage.method) {
-						// This is a request
-						this.handleRequest(jsonMessage);
-					}
+				// Handle JSON-RPC requests
+				if (jsonMessage.jsonrpc === RPC_VERSION && jsonMessage.method) {
+					this.handleRequest(jsonMessage);
 				}
 			} catch (error) {
 				console.error("[BCM] Message parsing error:", error.message);

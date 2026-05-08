@@ -37,10 +37,10 @@ export class StaticFileServer {
 	/**
 	 * Handle HTTP requests
 	 */
-	private handleRequest(
+	private async handleRequest(
 		req: http.IncomingMessage,
 		res: http.ServerResponse,
-	): void {
+	): Promise<void> {
 		// Set CORS headers, allow access from any origin
 		res.setHeader("Access-Control-Allow-Origin", "*");
 		res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
@@ -162,34 +162,34 @@ mcp.reconnect();</code></pre>
 	/**
 	 * Serve html2canvas file
 	 */
-	private serveStaticFile(
+	private async serveStaticFile(
 		filePath: string,
 		contentType: string,
 		res: http.ServerResponse,
-	): void {
+	): Promise<void> {
 		try {
-			if (fs.existsSync(filePath)) {
-				const fileContent = fs.readFileSync(filePath);
-				// Set correct content type and cache control headers
-				res.writeHead(200, {
-					"Content-Type": contentType,
-					"Cache-Control": "no-cache, no-store, must-revalidate",
-					Pragma: "no-cache",
-					Expires: "0",
-				});
-				res.end(fileContent);
-				console.log(
-					`[Static Server] Successfully served static file: ${filePath}`,
-				);
-			} else {
+			const fileContent = await fs.promises.readFile(filePath);
+			// Set correct content type and cache control headers
+			res.writeHead(200, {
+				"Content-Type": contentType,
+				"Cache-Control": "no-cache, no-store, must-revalidate",
+				Pragma: "no-cache",
+				Expires: "0",
+			});
+			res.end(fileContent);
+			console.log(
+				`[Static Server] Successfully served static file: ${filePath}`,
+			);
+		} catch (error) {
+			if (typeof error === "object" && error !== null && (error as { code?: string }).code === "ENOENT") {
 				console.error(`[Static Server] Static file not found: ${filePath}`);
 				res.writeHead(404, { "Content-Type": "text/plain" });
 				res.end("File not found");
+			} else {
+				console.error("[Static Server] Error serving static file:", error);
+				res.writeHead(500, { "Content-Type": "text/plain" });
+				res.end("Internal Server Error");
 			}
-		} catch (error) {
-			console.error("[Static Server] Error serving static file:", error);
-			res.writeHead(500, { "Content-Type": "text/plain" });
-			res.end("Internal Server Error");
 		}
 	}
 

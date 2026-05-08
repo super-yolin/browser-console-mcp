@@ -58,8 +58,6 @@ class BrowserConsoleMCP {
 	private ws: WebSocket | null = null;
 	private serverUrl: string;
 	private connected = false;
-	private commandHistory: string[] = [];
-	private historyIndex = -1;
 
 	constructor(serverUrl = "ws://localhost:7898/browser") {
 		this.serverUrl = serverUrl;
@@ -521,8 +519,6 @@ class BrowserConsoleMCP {
 		};
 
 		this.ws.send(JSON.stringify(message));
-		this.commandHistory.push(command);
-		this.historyIndex = this.commandHistory.length;
 	}
 
 	/**

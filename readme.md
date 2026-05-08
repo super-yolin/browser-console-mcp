@@ -1,6 +1,6 @@
 # Browser Console MCP
 
-Browser console MCP client and Cursor MCP server. Let your AI assistant control the browser!
+Browser console MCP client and server. Let your AI assistant control the browser!
 
 **Language**: [English](#english) | [中文](#中文) | [日本語](#日本語) | [한국어](#한국어)
 
@@ -8,33 +8,52 @@ Browser console MCP client and Cursor MCP server. Let your AI assistant control 
 
 ### Introduction
 
-Browser Console MCP is a tool that allows Cursor's Claude AI assistant to interact with the browser through the MCP (Model Context Protocol) protocol. It provides a browser client and an MCP server, enabling the AI assistant to perform the following operations:
+Browser Console MCP is a relay server that lets any MCP-compatible AI client (Cursor, Claude Desktop, etc.) interact with your browser in real time. Inject the client script into any page and your AI can:
 
 - Get page HTML content
 - Execute JavaScript code
 - Get page title and URL
-- Get elements using CSS selectors
+- Query elements using CSS selectors
 - Capture page screenshots
-- Click page elements
-- Input text into form fields
+- Click elements
+- Fill in form fields
+
+### How it works
+
+The relay server runs locally and bridges two connections:
+
+1. **Browser side** — a small script injected into the page connects via WebSocket (`/browser`)
+2. **AI client side** — the MCP server communicates with Cursor / Claude Desktop via stdio
+
+All browser commands go through this relay; nothing is sent to any external service.
 
 ### Usage
 
-#### Inject MCP Client in Browser
+#### Step 1 — Start the relay server
 
-Execute the following code in your browser console:
+The server starts automatically when your MCP client launches it. Or run it manually:
+
+```bash
+npx browser-console-mcp
+```
+
+Open `http://localhost:7898` in your browser to check connection status and get the bookmarklet.
+
+#### Step 2 — Inject the client into your browser
+
+Drag the **Browser MCP** bookmarklet from `http://localhost:7898` to your bookmarks bar, then click it on any page.
+
+Or paste this into the browser console:
 
 ```javascript
-// ======== IMPORTANT: Inject MCP server ========
 var s = document.createElement('script');
 s.src = 'http://localhost:7898/browser-inject.js';
 document.head.appendChild(s);
-// ==============================================
 ```
 
-#### MCP Configuration
+#### Step 3 — Configure your MCP client
 
-Create a `.cursor/mcp.json` file in your home directory:
+**Cursor** — add to `~/.cursor/mcp.json`:
 
 ```json
 {
@@ -51,18 +70,40 @@ Create a `.cursor/mcp.json` file in your home directory:
 }
 ```
 
-#### Using in Cursor
+**Claude Desktop** — add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
-In Cursor, your AI assistant can now use the following tools:
+```json
+{
+  "mcpServers": {
+    "browser-mcp": {
+      "command": "npx",
+      "args": ["-y", "browser-console-mcp"],
+      "env": {
+        "PORT": "7898"
+      }
+    }
+  }
+}
+```
 
-- `mcp_browser-mcp_executeJS`: Execute JavaScript code
-- `mcp_browser-mcp_getPageHTML`: Get page HTML
-- `mcp_browser-mcp_getPageTitle`: Get page title
-- `mcp_browser-mcp_getElements`: Get elements using CSS selectors
-- `mcp_browser-mcp_captureScreenshot`: Capture page screenshot
-- `mcp_browser-mcp_getPageURL`: Get page URL
-- `mcp_browser-mcp_clickElement`: Click page elements
-- `mcp_browser-mcp_inputText`: Input text into form fields
+#### Available tools
+
+| Tool | Description |
+|------|-------------|
+| `executeJS` | Execute JavaScript in the page context |
+| `getPageHTML` | Get full page HTML |
+| `getPageTitle` | Get page title |
+| `getPageURL` | Get current URL |
+| `getElements` | Query elements by CSS selector |
+| `captureScreenshot` | Screenshot the page or a specific element |
+| `clickElement` | Click an element by CSS selector |
+| `inputText` | Type into an input or textarea |
+
+#### Troubleshooting
+
+- **No browser connection** — make sure you've injected the client script on the target page. The status page at `http://localhost:7898` shows live connection counts.
+- **Screenshot is blank** — try targeting a specific element: `captureScreenshot({selector: ".main-content"})`. Some pages block canvas rendering due to CSP.
+- **Port conflict** — change `PORT` in the MCP config and use the same port in the inject URL.
 
 ### License
 
@@ -72,33 +113,52 @@ MIT
 
 ### 简介
 
-Browser Console MCP 是一个工具，允许 Cursor 的 Claude AI 助手通过 MCP（Model Context Protocol）协议与浏览器进行交互。它提供了一个浏览器客户端和一个 MCP 服务器，使 AI 助手能够执行以下操作：
+Browser Console MCP 是一个本地中继服务器，让任何支持 MCP 协议的 AI 客户端（Cursor、Claude Desktop 等）能够实时控制浏览器。在页面中注入客户端脚本后，AI 可以：
 
 - 获取页面 HTML 内容
 - 执行 JavaScript 代码
 - 获取页面标题和 URL
-- 使用 CSS 选择器获取元素
-- 截取页面截图
+- 使用 CSS 选择器查询元素
+- 截取页面或指定元素的截图
 - 点击页面元素
 - 向输入框填入文本
 
+### 工作原理
+
+中继服务器在本地运行，连接两端：
+
+1. **浏览器端** — 注入页面的脚本通过 WebSocket（`/browser`）连接服务器
+2. **AI 客户端** — MCP 服务器通过 stdio 与 Cursor / Claude Desktop 通信
+
+所有指令都在本地转发，不经过任何外部服务。
+
 ### 使用方法
 
-#### 在浏览器中注入 MCP 客户端
+#### 第一步 — 启动中继服务器
 
-在浏览器控制台中执行以下代码：
+MCP 客户端会自动启动服务器。也可以手动运行：
+
+```bash
+npx browser-console-mcp
+```
+
+打开 `http://localhost:7898` 查看连接状态和书签工具。
+
+#### 第二步 — 在浏览器中注入客户端
+
+把 `http://localhost:7898` 页面上的 **Browser MCP** 书签拖到浏览器书签栏，然后在任意页面点击它。
+
+或者直接在控制台粘贴：
 
 ```javascript
-// ======== 重要: 注入MCP服务器 ========
 var s = document.createElement('script');
 s.src = 'http://localhost:7898/browser-inject.js';
 document.head.appendChild(s);
-// ====================================
 ```
 
-#### MCP 配置
+#### 第三步 — 配置 MCP 客户端
 
-在您的主目录中创建 `.cursor/mcp.json` 文件：
+**Cursor** — 编辑 `~/.cursor/mcp.json`：
 
 ```json
 {
@@ -115,18 +175,40 @@ document.head.appendChild(s);
 }
 ```
 
-#### 在 Cursor 中使用
+**Claude Desktop** — 编辑 `~/Library/Application Support/Claude/claude_desktop_config.json`：
 
-在 Cursor 中，你的 AI 助手现在可以使用以下工具：
+```json
+{
+  "mcpServers": {
+    "browser-mcp": {
+      "command": "npx",
+      "args": ["-y", "browser-console-mcp"],
+      "env": {
+        "PORT": "7898"
+      }
+    }
+  }
+}
+```
 
-- `mcp_browser-mcp_executeJS`: 执行 JavaScript 代码
-- `mcp_browser-mcp_getPageHTML`: 获取页面 HTML
-- `mcp_browser-mcp_getPageTitle`: 获取页面标题
-- `mcp_browser-mcp_getElements`: 使用 CSS 选择器获取元素
-- `mcp_browser-mcp_captureScreenshot`: 截取页面截图
-- `mcp_browser-mcp_getPageURL`: 获取页面 URL
-- `mcp_browser-mcp_clickElement`: 点击页面元素
-- `mcp_browser-mcp_inputText`: 向输入框填入文本
+#### 可用工具
+
+| 工具 | 说明 |
+|------|------|
+| `executeJS` | 在页面上下文中执行 JavaScript |
+| `getPageHTML` | 获取完整页面 HTML |
+| `getPageTitle` | 获取页面标题 |
+| `getPageURL` | 获取当前 URL |
+| `getElements` | 用 CSS 选择器查询元素 |
+| `captureScreenshot` | 截取页面或指定元素截图 |
+| `clickElement` | 点击指定元素 |
+| `inputText` | 向输入框或文本域填入文本 |
+
+#### 常见问题
+
+- **提示无浏览器连接** — 确认已在目标页面注入客户端脚本，`http://localhost:7898` 会显示实时连接数。
+- **截图空白** — 试试指定具体元素：`captureScreenshot({selector: ".main-content"})`，部分页面的 CSP 策略会阻止 canvas 渲染。
+- **端口冲突** — 在 MCP 配置中修改 `PORT`，注入 URL 中也使用相同端口。
 
 ### 许可证
 
@@ -136,33 +218,33 @@ MIT
 
 ### はじめに
 
-Browser Console MCPは、CursorのClaude AIアシスタントがMCP（Model Context Protocol）プロトコルを通じてブラウザと対話できるようにするツールです。ブラウザクライアントとMCPサーバーを提供し、AIアシスタントが以下の操作を実行できるようにします：
+Browser Console MCPは、MCP対応AIクライアント（Cursor、Claude Desktopなど）がブラウザをリアルタイムで操作できるようにするローカル中継サーバーです。ページにクライアントスクリプトを注入すると、AIが以下の操作を実行できます：
 
 - ページのHTML内容の取得
 - JavaScriptコードの実行
 - ページタイトルとURLの取得
 - CSSセレクタを使用した要素の取得
-- ページのスクリーンショット撮影
+- ページまたは特定要素のスクリーンショット撮影
 - ページ要素のクリック
 - 入力フィールドへのテキスト入力
 
 ### 使用方法
 
-#### ブラウザにMCPクライアントを注入
+#### ステップ1 — ブラウザにクライアントを注入
 
 ブラウザのコンソールで以下のコードを実行します：
 
 ```javascript
-// ======== 重要: MCPサーバーを注入 ========
 var s = document.createElement('script');
 s.src = 'http://localhost:7898/browser-inject.js';
 document.head.appendChild(s);
-// ========================================
 ```
 
-#### MCP設定
+または `http://localhost:7898` のブックマークレットを使用してください。
 
-ホームディレクトリに `.cursor/mcp.json` ファイルを作成します：
+#### ステップ2 — MCP設定
+
+**Cursor** — `~/.cursor/mcp.json` に追加：
 
 ```json
 {
@@ -179,18 +261,34 @@ document.head.appendChild(s);
 }
 ```
 
-#### Cursorでの使用
+**Claude Desktop** — `~/Library/Application Support/Claude/claude_desktop_config.json` に追加：
 
-Cursorでは、AIアシスタントが以下のツールを使用できるようになります：
+```json
+{
+  "mcpServers": {
+    "browser-mcp": {
+      "command": "npx",
+      "args": ["-y", "browser-console-mcp"],
+      "env": {
+        "PORT": "7898"
+      }
+    }
+  }
+}
+```
 
-- `mcp_browser-mcp_executeJS`: JavaScriptコードを実行
-- `mcp_browser-mcp_getPageHTML`: ページのHTMLを取得
-- `mcp_browser-mcp_getPageTitle`: ページタイトルを取得
-- `mcp_browser-mcp_getElements`: CSSセレクタを使用して要素を取得
-- `mcp_browser-mcp_captureScreenshot`: ページのスクリーンショットを撮影
-- `mcp_browser-mcp_getPageURL`: ページURLを取得
-- `mcp_browser-mcp_clickElement`: ページ要素をクリック
-- `mcp_browser-mcp_inputText`: 入力フィールドにテキストを入力
+#### 利用可能なツール
+
+| ツール | 説明 |
+|--------|------|
+| `executeJS` | ページコンテキストでJavaScriptを実行 |
+| `getPageHTML` | ページの全HTMLを取得 |
+| `getPageTitle` | ページタイトルを取得 |
+| `getPageURL` | 現在のURLを取得 |
+| `getElements` | CSSセレクタで要素を取得 |
+| `captureScreenshot` | ページまたは特定要素のスクリーンショット |
+| `clickElement` | 要素をクリック |
+| `inputText` | 入力フィールドにテキストを入力 |
 
 ### ライセンス
 
@@ -200,33 +298,33 @@ MIT
 
 ### 소개
 
-Browser Console MCP는 Cursor의 Claude AI 어시스턴트가 MCP(Model Context Protocol) 프로토콜을 통해 브라우저와 상호작용할 수 있게 해주는 도구입니다. 브라우저 클라이언트와 MCP 서버를 제공하여 AI 어시스턴트가 다음 작업을 수행할 수 있도록 합니다:
+Browser Console MCP는 MCP 호환 AI 클라이언트(Cursor, Claude Desktop 등)가 브라우저를 실시간으로 제어할 수 있게 해주는 로컬 릴레이 서버입니다. 페이지에 클라이언트 스크립트를 주입하면 AI가 다음 작업을 수행할 수 있습니다:
 
 - 페이지 HTML 콘텐츠 가져오기
 - JavaScript 코드 실행하기
 - 페이지 제목 및 URL 가져오기
-- CSS 선택자를 사용하여 요소 가져오기
-- 페이지 스크린샷 캡처하기
+- CSS 선택자로 요소 가져오기
+- 페이지 또는 특정 요소 스크린샷 캡처하기
 - 페이지 요소 클릭하기
 - 입력 필드에 텍스트 입력하기
 
 ### 사용 방법
 
-#### 브라우저에 MCP 클라이언트 주입하기
+#### 1단계 — 브라우저에 클라이언트 주입하기
 
 브라우저 콘솔에서 다음 코드를 실행하세요:
 
 ```javascript
-// ======== 중요: MCP 서버 주입 ========
 var s = document.createElement('script');
 s.src = 'http://localhost:7898/browser-inject.js';
 document.head.appendChild(s);
-// ===================================
 ```
 
-#### MCP 구성
+또는 `http://localhost:7898`의 북마크릿을 사용하세요.
 
-홈 디렉토리에 `.cursor/mcp.json` 파일을 생성하세요:
+#### 2단계 — MCP 클라이언트 설정
+
+**Cursor** — `~/.cursor/mcp.json`에 추가:
 
 ```json
 {
@@ -243,18 +341,34 @@ document.head.appendChild(s);
 }
 ```
 
-#### Cursor에서 사용하기
+**Claude Desktop** — `~/Library/Application Support/Claude/claude_desktop_config.json`에 추가:
 
-Cursor에서 AI 어시스턴트는 이제 다음 도구들을 사용할 수 있습니다:
+```json
+{
+  "mcpServers": {
+    "browser-mcp": {
+      "command": "npx",
+      "args": ["-y", "browser-console-mcp"],
+      "env": {
+        "PORT": "7898"
+      }
+    }
+  }
+}
+```
 
-- `mcp_browser-mcp_executeJS`: JavaScript 코드 실행하기
-- `mcp_browser-mcp_getPageHTML`: 페이지 HTML 가져오기
-- `mcp_browser-mcp_getPageTitle`: 페이지 제목 가져오기
-- `mcp_browser-mcp_getElements`: CSS 선택자로 요소 가져오기
-- `mcp_browser-mcp_captureScreenshot`: 페이지 스크린샷 캡처하기
-- `mcp_browser-mcp_getPageURL`: 페이지 URL 가져오기
-- `mcp_browser-mcp_clickElement`: 페이지 요소 클릭하기
-- `mcp_browser-mcp_inputText`: 입력 필드에 텍스트 입력하기
+#### 사용 가능한 도구
+
+| 도구 | 설명 |
+|------|------|
+| `executeJS` | 페이지 컨텍스트에서 JavaScript 실행 |
+| `getPageHTML` | 전체 페이지 HTML 가져오기 |
+| `getPageTitle` | 페이지 제목 가져오기 |
+| `getPageURL` | 현재 URL 가져오기 |
+| `getElements` | CSS 선택자로 요소 가져오기 |
+| `captureScreenshot` | 페이지 또는 특정 요소 스크린샷 |
+| `clickElement` | 요소 클릭하기 |
+| `inputText` | 입력 필드에 텍스트 입력하기 |
 
 ### 라이선스
 

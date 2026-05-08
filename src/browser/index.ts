@@ -1,41 +1,46 @@
-/**
- * Browser MCP Relay Server
- *
- * This server is responsible for:
- * 1. Providing static file service, including browser-mcp-server.js and browser-inject.js
- * 2. Establishing WebSocket server to receive connections from browsers
- * 3. Establishing communication with the MCP server in the browser
- * 4. Communicating with Cursor via stdio (MCP protocol)
- */
-
-// Import necessary modules
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { promises as fs } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-// Import MCP SDK
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { type WebSocket, WebSocketServer } from "ws";
 import { z } from "zod";
 
-// Get current file directory
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const rootDir = join(__dirname, "../..");
 
-// Server configuration
 const PORT = process.env.PORT ? Number.parseInt(process.env.PORT) : 7898;
 
-// Store browser WebSocket connections
 const browserConnections: WebSocket[] = [];
-// Store Cursor WebSocket connections
 const cursorConnections: WebSocket[] = [];
 
-// Create HTTP server
-const server = createServer((req, res) => {
-	// Set CORS headers
+// --- HTTP server ---
+
+const STATIC_FILES: Record<string, { path: string; contentType: string }> = {
+	"/browser-mcp-server.js": {
+		path: join(__dirname, "browser-mcp-server.js"),
+		contentType: "application/javascript",
+	},
+	"/browser-inject.js": {
+		path: join(__dirname, "browser-inject.js"),
+		contentType: "application/javascript",
+	},
+	"/browser-console-mcp.js": {
+		path: join(rootDir, "dist/client/browser-console-mcp.js"),
+		contentType: "application/javascript",
+	},
+	"/browser-console-mcp.js.map": {
+		path: join(rootDir, "dist/client/browser-console-mcp.js.map"),
+		contentType: "application/json",
+	},
+};
+
+const httpServer = createServer(async (req, res) => {
 	res.setHeader("Access-Control-Allow-Origin", "*");
 	res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
 	res.setHeader(
@@ -43,14 +48,12 @@ const server = createServer((req, res) => {
 		"Origin, X-Requested-With, Content-Type, Accept",
 	);
 
-	// Handle preflight requests
 	if (req.method === "OPTIONS") {
 		res.writeHead(204);
 		res.end();
 		return;
 	}
 
-	// Handle status API requests
 	if (req.url === "/status") {
 		res.writeHead(200, {
 			"Content-Type": "application/json; charset=utf-8",
@@ -65,179 +68,76 @@ const server = createServer((req, res) => {
 		return;
 	}
 
-	// Handle static file requests
-	if (req.url === "/browser-mcp-server.js") {
-		res.writeHead(200, { "Content-Type": "application/javascript" });
-		const filePath = join(__dirname, "browser-mcp-server.js");
+	const staticFile = STATIC_FILES[req.url ?? ""];
+	if (staticFile) {
 		try {
-			const content = readFileSync(filePath, "utf8");
+			const content = await fs.readFile(staticFile.path, "utf8");
+			res.writeHead(200, { "Content-Type": staticFile.contentType });
 			res.end(content);
-		} catch (error) {
-			console.error("[BCM] Error reading file:", error);
+		} catch {
 			res.writeHead(500);
 			res.end("Internal Server Error");
 		}
 		return;
 	}
 
-	if (req.url === "/browser-inject.js") {
-		res.writeHead(200, { "Content-Type": "application/javascript" });
-		const filePath = join(__dirname, "browser-inject.js");
-		try {
-			const content = readFileSync(filePath, "utf8");
-			res.end(content);
-		} catch (error) {
-			console.error("[BCM] Error reading file:", error);
-			res.writeHead(500);
-			res.end("Internal Server Error");
-		}
-		return;
-	}
-
-	// Serve client script file
-	if (req.url === "/browser-console-mcp.js") {
-		res.writeHead(200, { "Content-Type": "application/javascript" });
-		const filePath = join(rootDir, "dist/client/browser-console-mcp.js");
-		try {
-			const content = readFileSync(filePath, "utf8");
-			res.end(content);
-		} catch (error) {
-			console.error("[BCM] Error reading file:", error);
-			res.writeHead(500);
-			res.end("Internal Server Error");
-		}
-		return;
-	}
-
-	// Serve client script map file
-	if (req.url === "/browser-console-mcp.js.map") {
-		res.writeHead(200, { "Content-Type": "application/json" });
-		const filePath = join(rootDir, "dist/client/browser-console-mcp.js.map");
-		try {
-			const content = readFileSync(filePath, "utf8");
-			res.end(content);
-		} catch (error) {
-			console.error("[BCM] Error reading file:", error);
-			res.writeHead(500);
-			res.end("Internal Server Error");
-		}
-		return;
-	}
-
-	// Default response - provide usage instructions
 	res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-	res.end(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Browser MCP Relay Server</title>
-        <style>
-          body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-          }
-          pre {
-            background-color: #f5f5f5;
-            padding: 10px;
-            border-radius: 5px;
-            overflow-x: auto;
-          }
-          code {
-            font-family: monospace;
-          }
-          .bookmarklet {
-            display: inline-block;
-            padding: 8px 12px;
-            background-color: #f0f0f0;
-            border-radius: 4px;
-            text-decoration: none;
-            color: #333;
-            border: 1px solid #ccc;
-          }
-          .button {
-            display: inline-block;
-            padding: 8px 12px;
-            background-color: #4CAF50;
-            color: white;
-            border-radius: 4px;
-            text-decoration: none;
-            margin-right: 10px;
-          }
-          .button:hover {
-            background-color: #45a049;
-          }
-        </style>
-      </head>
-      <body>
-        <h1>Browser MCP Relay Server</h1>
-        <p>Server is running. You can use it as follows:</p>
-        
-        <h2>Usage</h2>
-        
-        <h2>Step 1: Inject MCP Client in Browser</h2>
-        <p>Drag the following link to your bookmarks bar:</p>
-        <a class="bookmarklet" href="javascript:(function(){var s=document.createElement('script');s.src='http://localhost:${PORT}/browser-inject.js';document.head.appendChild(s);})();">Browser MCP</a>
-        
-        <p>Or paste the following code in your browser console:</p>
-        <pre><code>var s = document.createElement('script');
+	res.end(buildIndexPage());
+});
+
+function buildIndexPage(): string {
+	return `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Browser MCP Relay Server</title>
+    <style>
+      body { font-family: Arial, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; }
+      pre { background-color: #f5f5f5; padding: 10px; border-radius: 5px; overflow-x: auto; }
+      code { font-family: monospace; }
+      .bookmarklet { display: inline-block; padding: 8px 12px; background-color: #f0f0f0; border-radius: 4px; text-decoration: none; color: #333; border: 1px solid #ccc; }
+    </style>
+  </head>
+  <body>
+    <h1>Browser MCP Relay Server</h1>
+    <p>Server is running. Browser connections: <span id="bc">—</span> | Cursor connections: <span id="cc">—</span></p>
+
+    <h2>Step 1: Inject MCP Client in Browser</h2>
+    <p>Drag to bookmarks bar:</p>
+    <a class="bookmarklet" href="javascript:(function(){var s=document.createElement('script');s.src='http://localhost:${PORT}/browser-inject.js';document.head.appendChild(s);})();">Browser MCP</a>
+    <p>Or paste in browser console:</p>
+    <pre><code>var s = document.createElement('script');
 s.src = 'http://localhost:${PORT}/browser-inject.js';
 document.head.appendChild(s);</code></pre>
 
-        <h2>Step 2: Use MCP Tools in Cursor</h2>
-        <p>Now you can use MCP features in Cursor to execute browser commands, such as:</p>
-        <pre><code>// Execute JavaScript code in the browser
-executeJS({ code: 'console.log(window.location.href)' })
-
-// Get page HTML
+    <h2>Step 2: Use MCP Tools in Cursor</h2>
+    <pre><code>executeJS({ code: 'console.log(window.location.href)' })
 getPageHTML()
-
-// Get page title
 getPageTitle()</code></pre>
 
-        <h2>Connection Status</h2>
-        <p>Browser connection count: <span id="browser-count">0</span></p>
-        <p>Cursor connection count: <span id="cursor-count">0</span></p>
-        
-        <script>
-          // Periodically update connection status
-          setInterval(() => {
-            fetch('/status')
-              .then(res => res.json())
-              .then(data => {
-                document.getElementById('browser-count').textContent = data.browserCount;
-                document.getElementById('cursor-count').textContent = data.cursorCount;
-              })
-              .catch(err => {
-                console.error('Failed to get status:', err);
-                // Display connection error if there's an error
-                document.getElementById('browser-count').textContent = 'Connection error';
-                document.getElementById('cursor-count').textContent = 'Connection error';
-              });
-          }, 5000);
-        </script>
-      </body>
-    </html>
-  `);
-});
+    <script>
+      setInterval(() => {
+        fetch('/status').then(r => r.json()).then(d => {
+          document.getElementById('bc').textContent = d.browserCount;
+          document.getElementById('cc').textContent = d.cursorCount;
+        }).catch(() => {});
+      }, 5000);
+    </script>
+  </body>
+</html>`;
+}
 
-// Create WebSocket server
-const wss = new WebSocketServer({ server });
+// --- WebSocket server ---
 
-// Handle WebSocket connections
+const wss = new WebSocketServer({ server: httpServer });
+
 wss.on("connection", (ws, req) => {
-	// Determine connection type based on URL path
 	const url = new URL(req.url || "", `http://${req.headers.host}`);
 	const path = url.pathname;
 
 	if (path === "/browser") {
-		// Browser connection
 		browserConnections.push(ws);
 
-		// Send connection status message
 		ws.send(
 			JSON.stringify({
 				type: "connection_status",
@@ -246,519 +146,192 @@ wss.on("connection", (ws, req) => {
 			}),
 		);
 
-		// Handle browser messages
 		ws.on("message", (data) => {
-			try {
-				// Forward message to Cursor
-				if (cursorConnections.length > 0) {
-					for (const conn of cursorConnections) {
-						conn.send(data.toString());
-					}
-				}
-			} catch (error) {
-				console.error("[BCM] Error parsing browser message:", error);
+			for (const conn of cursorConnections) {
+				conn.send(data.toString());
 			}
 		});
 
-		// Handle connection closure
 		ws.on("close", () => {
-			const index = browserConnections.indexOf(ws);
-			if (index !== -1) {
-				browserConnections.splice(index, 1);
-			}
+			const i = browserConnections.indexOf(ws);
+			if (i !== -1) browserConnections.splice(i, 1);
 		});
 	} else if (path === "/cursor") {
-		// Cursor connection
 		cursorConnections.push(ws);
 
-		// Handle Cursor messages
 		ws.on("message", (data) => {
-			try {
-				const message = JSON.parse(data.toString());
-
-				// Forward message to browser
-				if (browserConnections.length > 0) {
-					for (const conn of browserConnections) {
-						conn.send(data.toString());
-					}
-				}
-			} catch (error) {
-				console.error("[BCM] Error parsing Cursor message:", error);
+			for (const conn of browserConnections) {
+				conn.send(data.toString());
 			}
 		});
 
-		// Handle connection closure
 		ws.on("close", () => {
-			const index = cursorConnections.indexOf(ws);
-			if (index !== -1) {
-				cursorConnections.splice(index, 1);
-			}
+			const i = cursorConnections.indexOf(ws);
+			if (i !== -1) cursorConnections.splice(i, 1);
 
-			// Check if all Cursor connections are closed
 			if (cursorConnections.length === 0) {
-				// Wait 2 seconds before shutting down to allow any pending operations to complete
-				setTimeout(() => {
-					cleanupAndExit(true);
-				}, 2000);
+				setTimeout(() => cleanupAndExit(true), 2000);
 			}
 		});
 	}
 });
 
-// Create MCP server
+// --- Shared MCP tool helpers ---
+
+type ToolResponse = {
+	content: Array<{ type: "text"; text: string }>;
+	isError?: boolean;
+};
+
+function toolResult(text: string): ToolResponse {
+	return { content: [{ type: "text", text }] };
+}
+
+function toolError(text: string): ToolResponse {
+	return { content: [{ type: "text", text }], isError: true };
+}
+
+function noBrowserConnection(): ToolResponse {
+	return toolError(
+		"Error: No browser connections. Please inject the MCP client in the browser first.",
+	);
+}
+
+type BrowserMessage = Record<string, unknown>;
+
+function sendBrowserRequest(
+	type: string,
+	payload: Record<string, unknown> = {},
+	timeoutMs = 5000,
+): Promise<BrowserMessage> {
+	return new Promise((resolve, reject) => {
+		const requestId = randomUUID();
+		const connection = browserConnections[0];
+		let settled = false;
+
+		function cleanup() {
+			clearTimeout(timer);
+			connection.removeListener("message", onMessage);
+			connection.removeListener("close", onClose);
+		}
+
+		function settleResolve(value: BrowserMessage) {
+			if (settled) return;
+			settled = true;
+			cleanup();
+			resolve(value);
+		}
+
+		function settleReject(error: Error) {
+			if (settled) return;
+			settled = true;
+			cleanup();
+			reject(error);
+		}
+
+		const timer = setTimeout(
+			() => settleReject(new Error("Request timed out. Browser did not respond.")),
+			timeoutMs,
+		);
+
+		function onClose() {
+			settleReject(new Error("Browser connection closed while waiting for response."));
+		}
+
+		function onMessage(data: Buffer | ArrayBuffer | Buffer[]) {
+			let message: BrowserMessage;
+			try {
+				message = JSON.parse(data.toString()) as BrowserMessage;
+			} catch {
+				return;
+			}
+			if (message.requestId !== requestId) return;
+			if (message.error) {
+				settleReject(new Error(String(message.error)));
+			} else {
+				settleResolve(message);
+			}
+		}
+
+		connection.on("message", onMessage);
+		connection.on("close", onClose);
+		connection.send(JSON.stringify({ type, requestId, ...payload }));
+	});
+}
+
+// --- MCP Server ---
+
 const transport = new StdioServerTransport();
-// Use more standard MCP initialization method
-// @ts-ignore - Type definition issue, we need to use compatible way
 const mcpServer = new McpServer({
 	name: "Browser MCP",
 	version: "1.0.0",
-	transport,
 });
 
-// Register tool - Use more standard way
-// @ts-ignore - Type definition issue, we need to use compatible way
 mcpServer.tool(
 	"executeJS",
 	"Execute JavaScript code in the current page context",
 	{
 		code: z
 			.string()
-			.describe("Execute JavaScript code in the current page context"),
+			.describe("JavaScript code to execute in the browser page context"),
 	},
-	async (params) => {
-		// In MCP SDK 1.5.0, parameters are directly passed as the first parameter
-		// @ts-ignore - Ignore type error, params should contain code attribute
-		const code = params?.code || "";
-
-		// Check if there are browser connections
-		if (browserConnections.length === 0) {
-			return {
-				content: [
-					{
-						type: "text",
-						text: "Error: No browser connections. Please inject MCP server in the browser first.",
-					},
-				],
-				isError: true,
-			};
+	async ({ code }) => {
+		if (browserConnections.length === 0) return noBrowserConnection();
+		try {
+			const msg = await sendBrowserRequest("execute_js", { code });
+			const result = String(msg.result || "Execution successful, no return value");
+			return toolResult(result);
+		} catch (e) {
+			return toolError(`Error: ${(e as Error).message}`);
 		}
-
-		// Create a Promise to wait for browser response
-		return new Promise((resolve) => {
-			// Create request ID
-			const requestId = `req_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-
-			// Create timeout handling
-			const timeout = setTimeout(() => {
-				resolve({
-					content: [
-						{
-							type: "text",
-							text: "Error: Request timed out. Browser did not respond.",
-						},
-					],
-					isError: true,
-				});
-			}, 5000);
-
-			// Set one-time message handling function
-			const messageHandler = (data: Buffer | ArrayBuffer | Buffer[]) => {
-				try {
-					const dataStr = data.toString();
-					// Check if message starts with "[Browser MC", if so, don't try to parse as JSON
-					if (dataStr.startsWith("[Browser MC")) {
-						return; // This is a log message, no need to parse as JSON
-					}
-
-					const message = JSON.parse(dataStr);
-
-					// Check if this is the corresponding response
-					if (message.requestId === requestId) {
-						// Clear timeout
-						clearTimeout(timeout);
-
-						// Remove message handler
-						browserConnections[0].removeListener("message", messageHandler);
-
-						// Return result
-						if (message.error) {
-							resolve({
-								content: [
-									{
-										type: "text",
-										text: `Error: ${message.error}`,
-									},
-								],
-								isError: true,
-							});
-						} else {
-							// Ensure return value is string
-							let resultText =
-								typeof message.result === "string"
-									? message.result
-									: String(message.result);
-
-							if (!resultText) {
-								resultText = "Execution successful, no return value";
-							}
-
-							resolve({
-								content: [
-									{
-										type: "text",
-										text: resultText,
-									},
-								],
-							});
-						}
-					}
-				} catch (error) {
-					// Log parsing error, but don't interrupt the flow
-					console.error(
-						"[BCM] Message parsing error:",
-						error,
-						"Raw data:",
-						data.toString().substring(0, 100),
-					);
-				}
-			};
-
-			// Add message handler
-			browserConnections[0].on("message", messageHandler);
-
-			// Send request to browser
-			browserConnections[0].send(
-				JSON.stringify({
-					type: "execute_js",
-					requestId,
-					code,
-				}),
-			);
-		});
 	},
 );
 
-// @ts-ignore - Type definition issue, we need to use compatible way
 mcpServer.tool(
 	"getPageHTML",
 	"Get HTML content of the current page",
+	{},
 	async () => {
-		// Check if there are browser connections
-		if (browserConnections.length === 0) {
-			return {
-				content: [
-					{
-						type: "text",
-						text: "Error: No browser connections. Please inject MCP server in the browser first.",
-					},
-				],
-				isError: true,
-			};
+		if (browserConnections.length === 0) return noBrowserConnection();
+		try {
+			const msg = await sendBrowserRequest("get_page_html");
+			return toolResult(String(msg.html ?? ""));
+		} catch (e) {
+			return toolError(`Error: ${(e as Error).message}`);
 		}
-
-		// Create a Promise to wait for browser response
-		return new Promise((resolve) => {
-			// Create request ID
-			const requestId = `req_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-
-			// Create timeout handling
-			const timeout = setTimeout(() => {
-				resolve({
-					content: [
-						{
-							type: "text",
-							text: "Error: Request timed out. Browser did not respond.",
-						},
-					],
-					isError: true,
-				});
-			}, 5000);
-
-			// Set one-time message handling function
-			const messageHandler = (data: Buffer | ArrayBuffer | Buffer[]) => {
-				try {
-					const dataStr = data.toString();
-					// Check if message starts with "[Browser MC", if so, don't try to parse as JSON
-					if (dataStr.startsWith("[Browser MC")) {
-						return; // This is a log message, no need to parse as JSON
-					}
-
-					const message = JSON.parse(dataStr);
-
-					// Check if this is the corresponding response
-					if (message.requestId === requestId) {
-						// Clear timeout
-						clearTimeout(timeout);
-
-						// Remove message handling function
-						browserConnections[0].removeListener("message", messageHandler);
-
-						// Return result
-						if (message.error) {
-							resolve({
-								content: [
-									{
-										type: "text",
-										text: `Error: ${message.error}`,
-									},
-								],
-								isError: true,
-							});
-						} else {
-							resolve({
-								content: [
-									{
-										type: "text",
-										text: message.html,
-									},
-								],
-							});
-						}
-					}
-				} catch (error) {
-					// Log parsing error, but don't interrupt the flow
-					console.error(
-						"[BCM] Message parsing error:",
-						error,
-						"Raw data:",
-						data.toString().substring(0, 100),
-					);
-				}
-			};
-
-			// Add message handler
-			browserConnections[0].on("message", messageHandler);
-
-			// Send request to browser
-			browserConnections[0].send(
-				JSON.stringify({
-					type: "get_page_html",
-					requestId,
-				}),
-			);
-		});
 	},
 );
 
-// @ts-ignore - Type definition issue, we need to use compatible way
-mcpServer.tool("getPageTitle", "Get title of the current page", async () => {
-	// Check if there are browser connections
-	if (browserConnections.length === 0) {
-		return {
-			content: [
-				{
-					type: "text",
-					text: "Error: No browser connections. Please inject MCP server in the browser first.",
-				},
-			],
-			isError: true,
-		};
-	}
+mcpServer.tool(
+	"getPageTitle",
+	"Get title of the current page",
+	{},
+	async () => {
+		if (browserConnections.length === 0) return noBrowserConnection();
+		try {
+			const msg = await sendBrowserRequest("get_page_title");
+			return toolResult(String(msg.title ?? ""));
+		} catch (e) {
+			return toolError(`Error: ${(e as Error).message}`);
+		}
+	},
+);
 
-	// Create a Promise to wait for browser response
-	return new Promise((resolve) => {
-		// Create request ID
-		const requestId = `req_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-
-		// Create timeout handling
-		const timeout = setTimeout(() => {
-			resolve({
-				content: [
-					{
-						type: "text",
-						text: "Error: Request timed out. Browser did not respond.",
-					},
-				],
-				isError: true,
-			});
-		}, 5000);
-
-		// Set one-time message handling function
-		const messageHandler = (data: Buffer | ArrayBuffer | Buffer[]) => {
-			try {
-				const dataStr = data.toString();
-				// Check if message starts with "[Browser MC", if so, don't try to parse as JSON
-				if (dataStr.startsWith("[Browser MC")) {
-					return; // This is a log message, no need to parse as JSON
-				}
-
-				const message = JSON.parse(dataStr);
-
-				// Check if this is the corresponding response
-				if (message.requestId === requestId) {
-					// Clear timeout
-					clearTimeout(timeout);
-
-					// Remove message handler
-					browserConnections[0].removeListener("message", messageHandler);
-
-					// Return result
-					if (message.error) {
-						resolve({
-							content: [
-								{
-									type: "text",
-									text: `Error: ${message.error}`,
-								},
-							],
-							isError: true,
-						});
-					} else {
-						resolve({
-							content: [
-								{
-									type: "text",
-									text: message.title,
-								},
-							],
-						});
-					}
-				}
-			} catch (error) {
-				// Log parsing error, but don't interrupt the flow
-				console.error(
-					"[BCM] Message parsing error:",
-					error,
-					"Raw data:",
-					data.toString().substring(0, 100),
-				);
-			}
-		};
-
-		// Add message handler
-		browserConnections[0].on("message", messageHandler);
-
-		// Send request to browser
-		browserConnections[0].send(
-			JSON.stringify({
-				type: "get_page_title",
-				requestId,
-			}),
-		);
-	});
-});
-
-// @ts-ignore - Type definition issue, we need to use compatible way
 mcpServer.tool(
 	"getElements",
 	"Use CSS selector to get elements on the page",
 	{ selector: z.string().describe("CSS selector") },
-	async (params) => {
-		// Check parameters
-		const selector = params?.selector;
-		if (!selector) {
-			return {
-				content: [
-					{
-						type: "text",
-						text: "Error: Missing required parameter 'selector'",
-					},
-				],
-				isError: true,
-			};
+	async ({ selector }) => {
+		if (browserConnections.length === 0) return noBrowserConnection();
+		try {
+			const msg = await sendBrowserRequest("get_elements", { selector });
+			return toolResult(JSON.stringify(msg.elements, null, 2));
+		} catch (e) {
+			return toolError(`Error: ${(e as Error).message}`);
 		}
-
-		// Check if there are browser connections
-		if (browserConnections.length === 0) {
-			return {
-				content: [
-					{
-						type: "text",
-						text: "Error: No browser connections. Please inject MCP server in the browser first.",
-					},
-				],
-				isError: true,
-			};
-		}
-
-		// Create a Promise to wait for browser response
-		return new Promise((resolve) => {
-			// Create request ID
-			const requestId = `req_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-
-			// Create timeout handling
-			const timeout = setTimeout(() => {
-				resolve({
-					content: [
-						{
-							type: "text",
-							text: "Error: Request timed out. Browser did not respond.",
-						},
-					],
-					isError: true,
-				});
-			}, 5000);
-
-			// Set one-time message handling function
-			const messageHandler = (data: Buffer | ArrayBuffer | Buffer[]) => {
-				try {
-					const dataStr = data.toString();
-					// Check if message starts with "[Browser MC", if so, don't try to parse as JSON
-					if (dataStr.startsWith("[Browser MC")) {
-						return; // This is a log message, no need to parse as JSON
-					}
-
-					const message = JSON.parse(dataStr);
-
-					// Check if it's the corresponding response
-					if (message.requestId === requestId) {
-						// Clear timeout
-						clearTimeout(timeout);
-
-						// Remove message handling function
-						browserConnections[0].removeListener("message", messageHandler);
-
-						// Return result
-						if (message.error) {
-							resolve({
-								content: [
-									{
-										type: "text",
-										text: `Error: ${message.error}`,
-									},
-								],
-								isError: true,
-							});
-						} else {
-							// Format elements information
-							const elementsInfo = JSON.stringify(message.elements, null, 2);
-							resolve({
-								content: [
-									{
-										type: "text",
-										text: elementsInfo,
-									},
-								],
-							});
-						}
-					}
-				} catch (error) {
-					// Log parsing error, but don't interrupt the flow
-					console.error(
-						"[BCM] Message parsing error:",
-						error,
-						"Raw data:",
-						data.toString().substring(0, 100),
-					);
-				}
-			};
-
-			// Add message handler
-			browserConnections[0].on("message", messageHandler);
-
-			// Send request to browser
-			browserConnections[0].send(
-				JSON.stringify({
-					type: "get_elements",
-					requestId,
-					selector,
-				}),
-			);
-		});
 	},
 );
 
-// @ts-ignore - Type definition issue, we need to use compatible way
 mcpServer.tool(
 	"captureScreenshot",
 	"Capture screenshot of the current page (using html2canvas)",
@@ -766,399 +339,68 @@ mcpServer.tool(
 		selector: z
 			.string()
 			.optional()
-			.describe("Optional CSS selector, for capturing specific elements"),
+			.describe("Optional CSS selector for capturing a specific element"),
 	},
-	async (params) => {
-		// Get parameters
-		const selector = params?.selector || "body";
+	async ({ selector = "body" }) => {
+		if (browserConnections.length === 0) return noBrowserConnection();
+		try {
+			const msg = await sendBrowserRequest(
+				"capture_screenshot",
+				{ selector },
+				15000,
+			);
 
-		// Check if there are browser connections
-		if (browserConnections.length === 0) {
-			return {
-				content: [
-					{
-						type: "text",
-						text: "Error: No browser connections. Please inject MCP server in the browser first.",
-					},
-				],
-				isError: true,
-			};
+			if (!msg.imageDataUrl) {
+				return toolError("Error: No screenshot data received");
+			}
+
+			const dataUrlParts = String(msg.imageDataUrl).split(",");
+			if (dataUrlParts.length !== 2 || !dataUrlParts[1]) {
+				return toolError("Error: Screenshot data format is incorrect");
+			}
+
+			const homeDir = homedir();
+			const saveDir = join(homeDir, "Downloads", "mcp-screenshots");
+			mkdirSync(saveDir, { recursive: true });
+
+			const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+			const filePath = join(saveDir, `screenshot-${timestamp}.png`);
+			writeFileSync(filePath, dataUrlParts[1], "base64");
+
+			return toolResult(
+				`Screenshot saved to: ${filePath}\n\nTip: for better results, specify a selector like captureScreenshot({selector: ".main-content"})`,
+			);
+		} catch (e) {
+			return toolError(`Error: ${(e as Error).message}`);
 		}
-
-		// Create a Promise to wait for browser response
-		return new Promise((resolve) => {
-			// Create request ID
-			const requestId = `req_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-
-			// Create timeout handling
-			const timeout = setTimeout(() => {
-				resolve({
-					content: [
-						{
-							type: "text",
-							text: "Error: Request timed out. Browser did not respond.",
-						},
-					],
-					isError: true,
-				});
-			}, 15000); // Increase screenshot timeout to 15 seconds, as screenshots may take longer
-
-			// Set one-time message handling function
-			const messageHandler = (data: Buffer | ArrayBuffer | Buffer[]) => {
-				try {
-					const dataStr = data.toString();
-					// Check if message starts with "[Browser MC", if so, don't try to parse as JSON
-					if (dataStr.startsWith("[Browser MC")) {
-						return; // This is a log message, no need to parse as JSON
-					}
-
-					const message = JSON.parse(dataStr);
-
-					// Check if it's the corresponding response
-					if (message.requestId === requestId) {
-						// Clear timeout
-						clearTimeout(timeout);
-
-						// Remove message handling function
-						browserConnections[0].removeListener("message", messageHandler);
-
-						// Return result
-						if (message.error) {
-							resolve({
-								content: [
-									{
-										type: "text",
-										text: `Error: ${message.error}`,
-									},
-								],
-								isError: true,
-							});
-						} else if (!message.imageDataUrl) {
-							resolve({
-								content: [
-									{
-										type: "text",
-										text: "Error: No screenshot data received",
-									},
-								],
-								isError: true,
-							});
-						} else {
-							try {
-								// Ensure data URL format is correct
-								const dataUrlParts = message.imageDataUrl.split(",");
-								if (dataUrlParts.length !== 2) {
-									throw new Error("Screenshot data format is incorrect");
-								}
-
-								const base64Data = dataUrlParts[1];
-
-								if (!base64Data) {
-									throw new Error("Screenshot data format is incorrect");
-								}
-
-								// Get user home directory
-								const homeDir = homedir();
-
-								// Create save directory
-								const saveDir = join(homeDir, "Downloads", "mcp-screenshots");
-								try {
-									mkdirSync(saveDir, { recursive: true });
-								} catch (err) {
-									console.error(
-										"[BCM] Failed to create screenshots directory:",
-										err,
-									);
-								}
-
-								// Generate filename
-								const timestamp = new Date()
-									.toISOString()
-									.replace(/[:.]/g, "-");
-								const filename = `screenshot-${timestamp}.png`;
-								const filePath = join(saveDir, filename);
-
-								// Save file
-								try {
-									writeFileSync(filePath, base64Data, "base64");
-
-									// Return success message and file path
-									resolve({
-										content: [
-											{
-												type: "text",
-												text: `Screenshot saved successfully to: ${filePath}\n\nNote: If the screenshot has white space issues, you can try specifying a specific element selector, such as: captureScreenshot({selector: ".main-content"})`,
-											},
-										],
-									});
-								} catch (err) {
-									console.error("[BCM] Failed to save screenshot:", err);
-									resolve({
-										content: [
-											{
-												type: "text",
-												text: `Failed to save screenshot: ${err instanceof Error ? err.message : String(err)}`,
-											},
-										],
-										isError: true,
-									});
-								}
-							} catch (error: unknown) {
-								const errorMessage =
-									error instanceof Error ? error.message : String(error);
-								resolve({
-									content: [
-										{
-											type: "text",
-											text: `Error: Failed to process screenshot data - ${errorMessage}`,
-										},
-									],
-									isError: true,
-								});
-							}
-						}
-					}
-				} catch (error) {
-					console.error("[BCM] Error parsing screenshot response:", error);
-					// Continue listening, do not remove listener on parsing error
-				}
-			};
-
-			// Add message handler
-			browserConnections[0].on("message", messageHandler);
-
-			// Send request to browser
-			console.log(
-				`[BCM] Sending screenshot request, ID: ${requestId}, selector: ${selector}`,
-			);
-			browserConnections[0].send(
-				JSON.stringify({
-					type: "capture_screenshot",
-					requestId,
-					selector,
-				}),
-			);
-		});
 	},
 );
 
-// @ts-ignore - Type definition issue, we need to use compatible way
-mcpServer.tool("getPageURL", "Get URL of the current page", async () => {
-	// Check if there are browser connections
-	if (browserConnections.length === 0) {
-		return {
-			content: [
-				{
-					type: "text",
-					text: "Error: No browser connections. Please inject MCP server in the browser first.",
-				},
-			],
-			isError: true,
-		};
+mcpServer.tool("getPageURL", "Get URL of the current page", {}, async () => {
+	if (browserConnections.length === 0) return noBrowserConnection();
+	try {
+		const msg = await sendBrowserRequest("get_page_url");
+		return toolResult(String(msg.url ?? ""));
+	} catch (e) {
+		return toolError(`Error: ${(e as Error).message}`);
 	}
-
-	// Create a Promise to wait for browser response
-	return new Promise((resolve) => {
-		// Create request ID
-		const requestId = `req_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-
-		// Create timeout handling
-		const timeout = setTimeout(() => {
-			resolve({
-				content: [
-					{
-						type: "text",
-						text: "Error: Request timed out. Browser did not respond.",
-					},
-				],
-				isError: true,
-			});
-		}, 5000);
-
-		// Set one-time message handling function
-		const messageHandler = (data: Buffer | ArrayBuffer | Buffer[]) => {
-			try {
-				const dataStr = data.toString();
-				// Check if message starts with "[Browser MC", if so, don't try to parse as JSON
-				if (dataStr.startsWith("[Browser MC")) {
-					return; // This is a log message, no need to parse as JSON
-				}
-
-				const message = JSON.parse(dataStr);
-
-				// Check if this is the corresponding response
-				if (message.requestId === requestId) {
-					// Clear timeout
-					clearTimeout(timeout);
-
-					// Remove message handling function
-					browserConnections[0].removeListener("message", messageHandler);
-
-					// Return result
-					if (message.error) {
-						resolve({
-							content: [
-								{
-									type: "text",
-									text: `Error: ${message.error}`,
-								},
-							],
-							isError: true,
-						});
-					} else {
-						resolve({
-							content: [
-								{
-									type: "text",
-									text: message.url,
-								},
-							],
-						});
-					}
-				}
-			} catch (error) {
-				// Log parsing error, but don't interrupt the flow
-				console.error(
-					"[BCM] Message parsing error:",
-					error,
-					"Raw data:",
-					data.toString().substring(0, 100),
-				);
-			}
-		};
-
-		// Add message handler
-		browserConnections[0].on("message", messageHandler);
-
-		// Send request to browser
-		browserConnections[0].send(
-			JSON.stringify({
-				type: "get_page_url",
-				requestId,
-			}),
-		);
-	});
 });
 
-// @ts-ignore - Type definition issue, we need to use compatible way
 mcpServer.tool(
 	"clickElement",
 	"Click element on the page",
 	{ selector: z.string().describe("CSS selector of the element to click") },
-	async (params) => {
-		// Check parameters
-		const selector = params?.selector;
-		if (!selector) {
-			return {
-				content: [
-					{
-						type: "text",
-						text: "Error: Missing required parameter 'selector'",
-					},
-				],
-				isError: true,
-			};
+	async ({ selector }) => {
+		if (browserConnections.length === 0) return noBrowserConnection();
+		try {
+			const msg = await sendBrowserRequest("click_element", { selector });
+			return toolResult(String(msg.message ?? "Element clicked successfully"));
+		} catch (e) {
+			return toolError(`Error: ${(e as Error).message}`);
 		}
-
-		// Check if there are browser connections
-		if (browserConnections.length === 0) {
-			return {
-				content: [
-					{
-						type: "text",
-						text: "Error: No browser connections. Please inject MCP server in the browser first.",
-					},
-				],
-				isError: true,
-			};
-		}
-
-		// Create a Promise to wait for browser response
-		return new Promise((resolve) => {
-			// Create request ID
-			const requestId = `req_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-
-			// Create timeout handling
-			const timeout = setTimeout(() => {
-				resolve({
-					content: [
-						{
-							type: "text",
-							text: "Error: Request timed out. Browser did not respond.",
-						},
-					],
-					isError: true,
-				});
-			}, 5000);
-
-			// Set one-time message handling function
-			const messageHandler = (data: Buffer | ArrayBuffer | Buffer[]) => {
-				try {
-					const dataStr = data.toString();
-					// Check if message starts with "[Browser MC", if so, don't try to parse as JSON
-					if (dataStr.startsWith("[Browser MC")) {
-						return; // This is a log message, no need to parse as JSON
-					}
-
-					const message = JSON.parse(dataStr);
-
-					// Check if it's the corresponding response
-					if (message.requestId === requestId) {
-						// Clear timeout
-						clearTimeout(timeout);
-
-						// Remove message handling function
-						browserConnections[0].removeListener("message", messageHandler);
-
-						// Return result
-						if (message.error) {
-							resolve({
-								content: [
-									{
-										type: "text",
-										text: `Error: ${message.error}`,
-									},
-								],
-								isError: true,
-							});
-						} else {
-							resolve({
-								content: [
-									{
-										type: "text",
-										text: message.message || "Element clicked successfully",
-									},
-								],
-							});
-						}
-					}
-				} catch (error) {
-					// Log parsing error, but don't interrupt the flow
-					console.error(
-						"[BCM] Message parsing error:",
-						error,
-						"Raw data:",
-						data.toString().substring(0, 100),
-					);
-				}
-			};
-
-			// Add message handler
-			browserConnections[0].on("message", messageHandler);
-
-			// Send request to browser
-			browserConnections[0].send(
-				JSON.stringify({
-					type: "click_element",
-					requestId,
-					selector,
-				}),
-			);
-		});
 	},
 );
 
-// @ts-ignore - Type definition issue, we need to use compatible way
 mcpServer.tool(
 	"inputText",
 	"Enter text into input field",
@@ -1166,181 +408,46 @@ mcpServer.tool(
 		selector: z.string().describe("CSS selector of the input field"),
 		text: z.string().describe("Text to enter"),
 	},
-	async (params) => {
-		// Check parameters
-		const selector = params?.selector;
-		const text = params?.text;
-		if (!selector || text === undefined) {
-			return {
-				content: [
-					{
-						type: "text",
-						text: "Error: Missing required parameters 'selector' or 'text'",
-					},
-				],
-				isError: true,
-			};
+	async ({ selector, text }) => {
+		if (browserConnections.length === 0) return noBrowserConnection();
+		try {
+			const msg = await sendBrowserRequest("input_text", { selector, text });
+			return toolResult(String(msg.message ?? "Text entered successfully"));
+		} catch (e) {
+			return toolError(`Error: ${(e as Error).message}`);
 		}
-
-		// Check if there are browser connections
-		if (browserConnections.length === 0) {
-			return {
-				content: [
-					{
-						type: "text",
-						text: "Error: No browser connections. Please inject MCP server in the browser first.",
-					},
-				],
-				isError: true,
-			};
-		}
-
-		// Create a Promise to wait for browser response
-		return new Promise((resolve) => {
-			// Create request ID
-			const requestId = `req_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-
-			// Create timeout handling
-			const timeout = setTimeout(() => {
-				resolve({
-					content: [
-						{
-							type: "text",
-							text: "Error: Request timed out. Browser did not respond.",
-						},
-					],
-					isError: true,
-				});
-			}, 5000);
-
-			// Set one-time message handling function
-			const messageHandler = (data: Buffer | ArrayBuffer | Buffer[]) => {
-				try {
-					const dataStr = data.toString();
-					// Check if message starts with "[Browser MC", if so, don't try to parse as JSON
-					if (dataStr.startsWith("[Browser MC")) {
-						return; // This is a log message, no need to parse as JSON
-					}
-
-					const message = JSON.parse(dataStr);
-
-					// Check if it's the corresponding response
-					if (message.requestId === requestId) {
-						// Clear timeout
-						clearTimeout(timeout);
-
-						// Remove message handling function
-						browserConnections[0].removeListener("message", messageHandler);
-
-						// Return result
-						if (message.error) {
-							resolve({
-								content: [
-									{
-										type: "text",
-										text: `Error: ${message.error}`,
-									},
-								],
-								isError: true,
-							});
-						} else {
-							resolve({
-								content: [
-									{
-										type: "text",
-										text: message.message || "Text entered successfully",
-									},
-								],
-							});
-						}
-					}
-				} catch (error) {
-					// Log parsing error, but don't interrupt the flow
-					console.error(
-						"[BCM] Message parsing error:",
-						error,
-						"Raw data:",
-						data.toString().substring(0, 100),
-					);
-				}
-			};
-
-			// Add message handler
-			browserConnections[0].on("message", messageHandler);
-
-			// Send request to browser
-			browserConnections[0].send(
-				JSON.stringify({
-					type: "input_text",
-					requestId,
-					selector,
-					text,
-				}),
-			);
-		});
 	},
 );
 
-// Handle process signals
-process.on("SIGINT", () => {
-	cleanupAndExit(true);
-});
+// --- Process lifecycle ---
 
-process.on("SIGTERM", () => {
-	cleanupAndExit(true);
-});
-
-// Handle uncaught exceptions
+process.on("SIGINT", () => cleanupAndExit(true));
+process.on("SIGTERM", () => cleanupAndExit(true));
 process.on("uncaughtException", (error) => {
 	console.error("[BCM] Uncaught exception:", error);
 	cleanupAndExit(true);
 });
-
 process.on("unhandledRejection", (reason) => {
 	console.error("[BCM] Unhandled Promise rejection:", reason);
-	// Do not exit, just record
 });
 
-// Start server
-server.listen(PORT, () => {
+httpServer.listen(PORT, () => {
 	console.log(`[BCM] Server started, listening on port ${PORT}`);
 });
 
-// Initialize MCP server
-// @ts-ignore - Use old version MCP SDK 1.5.0 API
 mcpServer.connect(transport).catch((error: Error) => {
 	console.error("[BCM] MCP server initialization failed:", error);
 	cleanupAndExit(true);
 });
 
-/**
- * Clean up resources and exit
- */
 function cleanupAndExit(shouldExit = true) {
-	// Close all WebSocket connections
-	for (const conn of browserConnections) {
+	for (const conn of [...browserConnections, ...cursorConnections]) {
 		try {
 			conn.close();
-		} catch (error) {
-			console.error("[BCM] Error closing browser connection:", error);
-		}
+		} catch {}
 	}
-
-	for (const conn of cursorConnections) {
-		try {
-			conn.close();
-		} catch (error) {
-			console.error("[BCM] Error closing Cursor connection:", error);
-		}
-	}
-
-	// Close WebSocket server
 	wss.close();
-
-	// Close HTTP server
-	server.close(() => {
-		if (shouldExit) {
-			process.exit(0);
-		}
+	httpServer.close(() => {
+		if (shouldExit) process.exit(0);
 	});
 }
