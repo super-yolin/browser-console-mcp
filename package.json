@@ -5,7 +5,7 @@
 	"main": "dist/browser/index.js",
 	"type": "module",
 	"bin": {
-		"browser-console-mcp": "./bin/browser-mcp-server.js"
+		"browser-console-mcp": "bin/browser-mcp-server.js"
 	},
 	"scripts": {
 		"build": "tsc",
