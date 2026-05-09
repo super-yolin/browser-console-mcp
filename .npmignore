@@ -21,9 +21,14 @@ node_modules
 
 # Test files
 __tests__
+test/
+e2e/
 *.spec.ts
 *.test.ts
+*.spec.js
+*.test.js
 coverage
+playwright.config.ts
 
 # Editor configuration
 .vscode
@@ -50,6 +55,7 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 .omc/
+extension.zip
 
 # Legacy server (not used at runtime)
 dist/server/

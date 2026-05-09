@@ -75,6 +75,8 @@ To package the extension:
 pnpm package:extension
 ```
 
+The generated `extension.zip` is a build artifact and should not be committed.
+
 ### Step 3: Configure Your MCP Client
 
 Cursor, `~/.cursor/mcp.json`:
@@ -135,12 +137,6 @@ Claude Desktop, `~/Library/Application Support/Claude/claude_desktop_config.json
 - **Screenshot is blank**: try `captureScreenshot({ selector: ".main-content" })`. Some pages block canvas rendering.
 - **Port conflict**: change `PORT` in the MCP config. Runtime state is stored in `~/.browser-console-mcp/runtime.json`.
 - **Extension does not connect**: reload the extension in `chrome://extensions`, reload the target page, and verify the daemon is running.
-
-## Other Languages
-
-- [中文](readme.zh.md)
-- [日本語](readme.ja.md)
-- [한국어](readme.ko.md)
 
 ## License
 

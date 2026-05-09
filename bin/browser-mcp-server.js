@@ -34,11 +34,11 @@ process.stdout.write = (chunk, encoding, callback) => {
 	return originalStdoutWrite(chunk, encoding, callback);
 };
 
-// Start browser MCP server
-console.error(`Starting Browser MCP server, listening on port ${port}...`);
+// Start MCP stdio adapter. The adapter attaches to or starts the daemon.
+console.error(`Starting Browser MCP adapter, daemon port ${port}...`);
 
 // Ensure stdio is correctly passed
-const child = spawn("node", [join(rootDir, "dist/browser/index.js")], {
+const child = spawn(process.execPath, [join(rootDir, "dist/mcp/adapter.js")], {
 	stdio: ["inherit", "inherit", "inherit"], // Ensure stdin, stdout, stderr are all correctly passed
 	env: { ...process.env, PORT: port },
 });

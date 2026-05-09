@@ -1,8 +1,15 @@
 {
 	"name": "browser-console-mcp",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"description": "Let your AI assistant control the browser via MCP",
 	"main": "dist/browser/index.js",
+	"exports": {
+		".": "./dist/browser/index.js",
+		"./vite": {
+			"types": "./dist/vite/index.d.ts",
+			"import": "./dist/vite/index.js"
+		}
+	},
 	"type": "module",
 	"bin": {
 		"browser-console-mcp": "bin/browser-mcp-server.js"
@@ -11,9 +18,14 @@
 		"build": "tsc",
 		"build:client": "rollup -c",
 		"build:browser": "rollup -c rollup.browser.config.js",
+		"build:adapter": "rollup -c rollup.adapter.config.js",
+		"package:extension": "rm -f extension.zip && (cd extension && zip -r ../extension.zip . -x '*.DS_Store')",
 		"copy:html2canvas": "node bin/copy-html2canvas.js",
 		"copy:browser-inject": "node bin/copy-browser-inject.js",
-		"build:all": "pnpm build && pnpm build:client && pnpm build:browser && pnpm copy:html2canvas && pnpm copy:browser-inject",
+		"build:all": "pnpm build && pnpm build:client && pnpm build:browser && pnpm build:adapter && pnpm copy:html2canvas && pnpm copy:browser-inject",
+		"test:node": "node --test test/*.test.js",
+		"test:e2e": "playwright test",
+		"test": "pnpm build:all && pnpm test:node && pnpm test:e2e",
 		"dev": "tsc --watch",
 		"start": "node dist/server/index.js",
 		"start:browser": "node dist/browser/index.js",
@@ -43,6 +55,7 @@
 		"node": ">=16.0.0"
 	},
 	"devDependencies": {
+		"@playwright/test": "^1.59.1",
 		"@rollup/plugin-commonjs": "^25.0.7",
 		"@rollup/plugin-node-resolve": "^15.2.3",
 		"@rollup/plugin-typescript": "^11.1.6",
@@ -55,9 +68,9 @@
 		"typescript": "^5.4.2"
 	},
 	"dependencies": {
-		"@modelcontextprotocol/sdk": "^1.5.0",
+		"@modelcontextprotocol/sdk": "^1.29.0",
 		"ws": "^8.16.0",
-		"zod": "^3.24.4"
+		"zod": "^4.4.3"
 	},
 	"peerDependencies": {
 		"html2canvas": "^1.4.1"

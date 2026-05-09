@@ -7,6 +7,8 @@ node_modules/
 dist/
 build/
 out/
+extension.zip
+.omc/
 
 # Logs
 logs
@@ -22,3 +24,5 @@ pnpm-debug.log*
 *.sublime-project
 *.sublime-workspace
 .DS_Store 
+.omc
+extension.zip

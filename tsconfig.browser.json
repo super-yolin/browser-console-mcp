@@ -2,8 +2,8 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "outDir": "dist/browser",
-    "rootDir": "src/browser"
+    "rootDir": "src"
   },
-  "include": ["src/browser/**/*"],
+  "include": ["src/browser/**/*", "src/daemon/**/*", "src/mcp/**/*", "src/shared/**/*"],
   "exclude": ["node_modules", "dist"]
 } 

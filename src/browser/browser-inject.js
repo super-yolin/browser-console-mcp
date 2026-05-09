@@ -19,6 +19,11 @@
 		: "http://localhost:7898";
 
 	// Load MCP client script
+	window.__BCM_CONFIG__ = {
+		serverUrl: serverUrl.replace(/^http/, "ws") + "/browser",
+		mode: "console",
+	};
+
 	const script = document.createElement("script");
 	script.src = `${serverUrl}/browser-console-mcp.js`;
 	script.onload = () => {

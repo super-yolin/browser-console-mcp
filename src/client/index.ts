@@ -1,10 +1,11 @@
-/**
- * Browser Console MCP Client
- *
- * This client runs in the browser console and communicates with the MCP server
- */
+import { PageAgent } from "./page-agent";
+import {
+	createProtocolMessage,
+	type BrowserCommandType,
+	type ConnectionMode,
+} from "../shared/protocol";
 
-interface MCPMessage {
+type MCPMessage = {
 	type: string;
 	payload?: Record<string, unknown>;
 	requestId?: string;
@@ -12,45 +13,24 @@ interface MCPMessage {
 	message?: string;
 	selector?: string;
 	text?: string;
-}
+};
 
 interface MCPConsole {
 	exec: (command: string) => string;
 	disconnect: () => string;
 	reconnect: () => string;
+	status: () => Record<string, unknown>;
 	help: () => string;
-}
-
-// html2canvas options type
-interface Html2CanvasOptions {
-	allowTaint?: boolean;
-	useCORS?: boolean;
-	logging?: boolean;
-	scale?: number;
-	backgroundColor?: string | null;
-	removeContainer?: boolean;
-	scrollX?: number;
-	scrollY?: number;
-	windowWidth?: number;
-	windowHeight?: number;
-	x?: number;
-	y?: number;
-	width?: number;
-	height?: number;
-	[key: string]: boolean | number | string | undefined | null;
 }
 
 // Extend global Window interface
 declare global {
 	interface Window {
 		mcp: MCPConsole;
-	}
-
-	interface WindowWithHtml2Canvas extends Window {
-		html2canvas?: (
-			element: HTMLElement,
-			options?: Html2CanvasOptions,
-		) => Promise<HTMLCanvasElement>;
+		__BCM_CONFIG__?: {
+			serverUrl?: string;
+			mode?: ConnectionMode;
+		};
 	}
 }
 
@@ -58,24 +38,37 @@ class BrowserConsoleMCP {
 	private ws: WebSocket | null = null;
 	private serverUrl: string;
 	private connected = false;
+	private reconnectAttempts = 0;
+	private reconnectTimer: number | null = null;
+	private heartbeatTimer: number | null = null;
+	private readonly maxReconnectDelay = 30000;
+	private readonly pageAgent = new PageAgent();
+	private readonly clientId: string;
+	private readonly sessionId: string;
+	private readonly mode: ConnectionMode;
 
-	constructor(serverUrl = "ws://localhost:7898/browser") {
+	constructor(serverUrl = "ws://localhost:7898/browser", mode: ConnectionMode = "console") {
 		this.serverUrl = serverUrl;
+		this.mode = mode;
+		this.clientId = this.getOrCreateId("bcm_client_id");
+		this.sessionId = this.getOrCreateId("bcm_session_id", true);
 	}
 
-	/**
-	 * Connect to MCP server
-	 */
 	connect(): void {
 		try {
-			// First load html2canvas
-			this.loadHtml2Canvas()
+			this.pageAgent
+				.loadHtml2Canvas()
 				.then(() => {
+					this.clearReconnectTimer();
+					if (this.ws) this.ws.close();
 					this.ws = new WebSocket(this.serverUrl);
 
 					this.ws.onopen = () => {
 						this.connected = true;
+						this.reconnectAttempts = 0;
 						console.log("%c[MCP Client] Connected to server", "color: green");
+						this.sendHello();
+						this.startHeartbeat();
 						this.registerConsoleCommands();
 					};
 
@@ -90,17 +83,19 @@ class BrowserConsoleMCP {
 
 					this.ws.onclose = () => {
 						this.connected = false;
+						this.stopHeartbeat();
 						console.log(
 							"%c[MCP Client] Disconnected from server",
 							"color: orange",
 						);
+						this.scheduleReconnect();
 					};
 
 					this.ws.onerror = (error) => {
 						console.error("[MCP Client] WebSocket error:", error);
 					};
 				})
-				.catch((error) => {
+				.catch((error: Error) => {
 					console.error("[MCP Client] Failed to load html2canvas:", error);
 				});
 		} catch (error) {
@@ -108,343 +103,25 @@ class BrowserConsoleMCP {
 		}
 	}
 
-	/**
-	 * Load html2canvas library
-	 */
-	private loadHtml2Canvas(): Promise<boolean> {
-		return new Promise((resolve, reject) => {
-			if (
-				typeof (window as WindowWithHtml2Canvas).html2canvas !== "undefined"
-			) {
-				console.log("[MCP Client] html2canvas already loaded");
-				resolve(true);
-				return;
-			}
-
-			console.log("[MCP Client] Loading html2canvas...");
-
-			// Prioritize loading html2canvas from CDN
-			const script = document.createElement("script");
-			script.src = "https://html2canvas.hertzen.com/dist/html2canvas.min.js";
-			script.onload = () => {
-				console.log("[MCP Client] html2canvas loaded from CDN");
-				resolve(true);
-			};
-			script.onerror = () => {
-				// If CDN fails, try local path
-				console.log("[MCP Client] Trying local path for html2canvas...");
-				const localScript = document.createElement("script");
-				localScript.src = "/html2canvas.min.js";
-				localScript.onload = () => {
-					console.log("[MCP Client] html2canvas loaded from local path");
-					resolve(true);
-				};
-				localScript.onerror = (err) => {
-					// Try using unpkg CDN
-					console.log("[MCP Client] Trying unpkg CDN for html2canvas...");
-					const unpkgScript = document.createElement("script");
-					unpkgScript.src =
-						"https://unpkg.com/html2canvas/dist/html2canvas.min.js";
-					unpkgScript.onload = () => {
-						console.log("[MCP Client] html2canvas loaded from unpkg CDN");
-						resolve(true);
-					};
-					unpkgScript.onerror = (err) => {
-						console.error("[MCP Client] Failed to load html2canvas:", err);
-						reject(
-							new Error(
-								"Unable to load html2canvas library, please ensure your network connection is working",
-							),
-						);
-					};
-					document.head.appendChild(unpkgScript);
-				};
-				document.head.appendChild(localScript);
-			};
-			document.head.appendChild(script);
-		});
-	}
-
-	/**
-	 * Handle messages from server
-	 */
-	private handleServerMessage(message: MCPMessage): void {
-		// Handle special request types
-		if (message.type === "get_page_html") {
-			// Handle request to get page HTML
-			const requestId = message.requestId as string;
-			try {
-				const html = document.documentElement.outerHTML;
-				this.sendResponse(requestId, { html });
-			} catch (error) {
-				this.sendError(
-					requestId,
-					`Error getting HTML: ${(error as Error).message}`,
-				);
-			}
+	private async handleServerMessage(message: MCPMessage): Promise<void> {
+		if (message.type === "ping") {
+			this.sendRaw(createProtocolMessage("pong", {
+				clientId: this.clientId,
+				sessionId: this.sessionId,
+			}));
 			return;
 		}
 
-		if (message.type === "execute_js") {
-			// Handle request to execute JavaScript
-			const requestId = message.requestId as string;
-			const code = message.code as string;
+		const requestId = message.requestId;
+		if (requestId && this.pageAgent.capabilities.includes(message.type)) {
 			try {
-				// Use Function constructor to create function, then execute
-				const result = new Function(code)();
-				// Ensure result can be JSON serialized
-				let serializedResult: string;
-				try {
-					serializedResult = JSON.stringify(result);
-				} catch (err) {
-					// If result cannot be serialized, return string representation
-					serializedResult = String(result);
-				}
-
-				// Send response
-				const response = {
-					requestId,
-					result: serializedResult,
-				};
-
-				this.ws?.send(JSON.stringify(response));
-			} catch (error) {
-				console.error("[MCP Client] Error executing JavaScript:", error);
-				this.sendError(
-					requestId,
-					`Error executing JavaScript: ${(error as Error).message}`,
-				);
-			}
-			return;
-		}
-
-		if (message.type === "get_page_title") {
-			// Handle request to get page title
-			const requestId = message.requestId as string;
-			try {
-				const title = document.title;
-				this.sendResponse(requestId, { title });
-			} catch (error) {
-				this.sendError(
-					requestId,
-					`Error getting title: ${(error as Error).message}`,
-				);
-			}
-			return;
-		}
-
-		if (message.type === "get_elements") {
-			// Handle request to get elements
-			const requestId = message.requestId as string;
-			const selector = message.selector as string;
-			try {
-				const elements = [...document.querySelectorAll(selector)];
-				const result = elements.map((el) => ({
-					tagName: el.tagName,
-					id: el.id,
-					className: el.className,
-					textContent: el.textContent?.trim().substring(0, 500) || "",
-					attributes: [...el.attributes].reduce(
-						(attrs: Record<string, string>, attr) => {
-							attrs[attr.name] = attr.value;
-							return attrs;
-						},
-						{},
-					),
-				}));
-				this.sendResponse(requestId, { elements: result });
-			} catch (error) {
-				this.sendError(
-					requestId,
-					`Error getting elements: ${(error as Error).message}`,
-				);
-			}
-			return;
-		}
-
-		if (message.type === "capture_screenshot") {
-			// Handle screenshot request
-			const requestId = message.requestId as string;
-			const selector = (message.selector as string) || "body";
-
-			// Process screenshot asynchronously
-			(async () => {
-				try {
-					// Ensure html2canvas is loaded
-					await this.loadHtml2Canvas();
-
-					const element = document.querySelector(selector);
-					if (!element) {
-						this.sendError(requestId, `Element not found: ${selector}`);
-						return;
-					}
-
-					// Use html2canvas for screenshot, add config for better compatibility
-					const html2canvasOptions: Html2CanvasOptions = {
-						allowTaint: true,
-						useCORS: true,
-						logging: false,
-						scale: window.devicePixelRatio || 1,
-						backgroundColor: null, // Transparent background
-						removeContainer: true, // Remove temporary container
-						// Calculate actual element size and position
-						x: 0,
-						y: 0,
-						scrollX: 0,
-						scrollY: 0,
-						// Get actual element width and height
-						width: (element as HTMLElement).offsetWidth,
-						height: (element as HTMLElement).offsetHeight,
-					};
-
-					const html2canvas = (window as WindowWithHtml2Canvas).html2canvas;
-
-					if (!html2canvas) {
-						this.sendError(
-							requestId,
-							"html2canvas library not properly loaded",
-						);
-						return;
-					}
-
-					let canvas = await html2canvas(
-						element as HTMLElement,
-						html2canvasOptions,
-					);
-
-					if (!canvas) {
-						this.sendError(
-							requestId,
-							"Screenshot failed: unable to create canvas",
-						);
-						return;
-					}
-
-					// Crop canvas, remove excess white space
-					const context = canvas.getContext("2d");
-					if (context) {
-						// Try to detect content area, remove whitespace
-						const imageData = context.getImageData(
-							0,
-							0,
-							canvas.width,
-							canvas.height,
-						);
-						const bounds = this.getContentBounds(imageData);
-
-						if (bounds) {
-							// If content boundaries found, create a new cropped canvas
-							const croppedCanvas = document.createElement("canvas");
-							croppedCanvas.width = bounds.width;
-							croppedCanvas.height = bounds.height;
-
-							const croppedContext = croppedCanvas.getContext("2d");
-							if (croppedContext) {
-								croppedContext.drawImage(
-									canvas,
-									bounds.left,
-									bounds.top,
-									bounds.width,
-									bounds.height,
-									0,
-									0,
-									bounds.width,
-									bounds.height,
-								);
-
-								// Use cropped canvas
-								canvas = croppedCanvas;
-							}
-						}
-					}
-
-					// Compress image quality to reduce data size, use PNG format to maintain transparency
-					const dataUrl = canvas.toDataURL("image/png");
-					this.sendResponse(requestId, { imageDataUrl: dataUrl });
-				} catch (error) {
-					console.error("[MCP Client] Screenshot error:", error);
-					this.sendError(
-						requestId,
-						`Screenshot error: ${(error as Error).message}`,
-					);
-				}
-			})();
-			return;
-		}
-
-		if (message.type === "get_page_url") {
-			// Handle request to get page URL
-			const requestId = message.requestId as string;
-			try {
-				const url = window.location.href;
-				this.sendResponse(requestId, { url });
-			} catch (error) {
-				this.sendError(
-					requestId,
-					`Error getting URL: ${(error as Error).message}`,
-				);
-			}
-			return;
-		}
-
-		if (message.type === "click_element") {
-			// Handle request to click element
-			const requestId = message.requestId as string;
-			const selector = message.selector as string;
-			try {
-				const element = document.querySelector(selector);
-				if (!element) {
-					this.sendError(requestId, `Element not found: ${selector}`);
-					return;
-				}
-
-				(element as HTMLElement).click();
-				this.sendResponse(requestId, {
-					success: true,
-					message: `Successfully clicked element: ${selector}`,
+				const result = await this.pageAgent.handleCommand({
+					...message,
+					type: message.type as BrowserCommandType,
 				});
+				this.sendResponse(requestId, result);
 			} catch (error) {
-				this.sendError(
-					requestId,
-					`Error clicking element: ${(error as Error).message}`,
-				);
-			}
-			return;
-		}
-
-		if (message.type === "input_text") {
-			// Handle request to input text
-			const requestId = message.requestId as string;
-			const selector = message.selector as string;
-			const text = message.text as string;
-
-			try {
-				const input = document.querySelector(selector);
-				if (!input) {
-					this.sendError(requestId, `Input field not found: ${selector}`);
-					return;
-				}
-
-				if (input.tagName !== "INPUT" && input.tagName !== "TEXTAREA") {
-					this.sendError(
-						requestId,
-						`Selected element is not an input field: ${input.tagName}`,
-					);
-					return;
-				}
-
-				(input as HTMLInputElement).value = text;
-				input.dispatchEvent(new Event("input", { bubbles: true }));
-
-				this.sendResponse(requestId, {
-					success: true,
-					message: `Successfully input text to: ${selector}`,
-				});
-			} catch (error) {
-				this.sendError(
-					requestId,
-					`Error inputting text: ${(error as Error).message}`,
-				);
+				this.sendError(requestId, (error as Error).message);
 			}
 			return;
 		}
@@ -479,6 +156,7 @@ class BrowserConsoleMCP {
 
 		const response = {
 			requestId,
+			sessionId: this.sessionId,
 			...data,
 		};
 
@@ -498,6 +176,7 @@ class BrowserConsoleMCP {
 
 		const response = {
 			requestId,
+			sessionId: this.sessionId,
 			error: errorMessage,
 		};
 
@@ -521,6 +200,74 @@ class BrowserConsoleMCP {
 		this.ws.send(JSON.stringify(message));
 	}
 
+	private sendHello(): void {
+		this.sendRaw(createProtocolMessage("hello", {
+			clientId: this.clientId,
+			sessionId: this.sessionId,
+			payload: {
+				mode: this.mode,
+				url: window.location.href,
+				title: document.title,
+				capabilities: this.pageAgent.capabilities,
+			},
+		}));
+	}
+
+	private startHeartbeat(): void {
+		this.stopHeartbeat();
+		this.heartbeatTimer = window.setInterval(() => {
+			this.sendRaw(createProtocolMessage("ping", {
+				clientId: this.clientId,
+				sessionId: this.sessionId,
+			}));
+		}, 15000);
+	}
+
+	private stopHeartbeat(): void {
+		if (this.heartbeatTimer !== null) {
+			clearInterval(this.heartbeatTimer);
+			this.heartbeatTimer = null;
+		}
+	}
+
+	private scheduleReconnect(): void {
+		if (this.reconnectTimer !== null) return;
+		const delay = Math.min(500 * 2 ** this.reconnectAttempts, this.maxReconnectDelay);
+		this.reconnectAttempts++;
+		this.reconnectTimer = window.setTimeout(() => {
+			this.reconnectTimer = null;
+			this.connect();
+		}, delay);
+	}
+
+	private clearReconnectTimer(): void {
+		if (this.reconnectTimer !== null) {
+			clearTimeout(this.reconnectTimer);
+			this.reconnectTimer = null;
+		}
+	}
+
+	private sendRaw(message: unknown): void {
+		if (this.ws?.readyState === WebSocket.OPEN) {
+			this.ws.send(JSON.stringify(message));
+		}
+	}
+
+	private getOrCreateId(key: string, perPage = false): string {
+		if (perPage && typeof sessionStorage !== "undefined") {
+			const sessionValue = sessionStorage.getItem(key);
+			if (sessionValue) return sessionValue;
+			const id = crypto.randomUUID();
+			sessionStorage.setItem(key, id);
+			return id;
+		}
+		const stored = localStorage.getItem(key);
+		if (stored) return stored;
+		const id = crypto.randomUUID();
+		localStorage.setItem(key, id);
+		return id;
+	}
+
 	/**
 	 * Register console commands
 	 */
@@ -542,12 +289,21 @@ class BrowserConsoleMCP {
 				this.connect();
 				return "Reconnecting...";
 			},
+			status: () => ({
+				connected: this.connected,
+				clientId: this.clientId,
+				sessionId: this.sessionId,
+				mode: this.mode,
+				url: window.location.href,
+				title: document.title,
+			}),
 			help: () => {
 				return `
 MCP Client Commands:
   mcp.exec(command) - Execute a command
   mcp.disconnect() - Disconnect from server
   mcp.reconnect() - Reconnect to server
+  mcp.status() - Show connection/session status
   mcp.help() - Show help information
         `;
 			},
@@ -559,56 +315,29 @@ MCP Client Commands:
 		);
 	}
 
-	/**
-	 * Get image content boundaries, remove excess whitespace
-	 */
-	private getContentBounds(
-		imageData: ImageData,
-	): { left: number; top: number; width: number; height: number } | null {
-		const { width, height, data } = imageData;
-		let minX = width;
-		let minY = height;
-		let maxX = 0;
-		let maxY = 0;
-		let hasContent = false;
-
-		// Iterate through pixel data, find boundaries of non-transparent pixels
-		for (let y = 0; y < height; y++) {
-			for (let x = 0; x < width; x++) {
-				const alpha = data[(y * width + x) * 4 + 3]; // Alpha channel
-				if (alpha > 10) {
-					// Non-transparent pixel (allowing some slight transparency)
-					hasContent = true;
-					minX = Math.min(minX, x);
-					minY = Math.min(minY, y);
-					maxX = Math.max(maxX, x);
-					maxY = Math.max(maxY, y);
-				}
-			}
-		}
-
-		if (!hasContent) {
-			return null; // No content found
-		}
-
-		// Add some padding
-		const padding = 10;
-		minX = Math.max(0, minX - padding);
-		minY = Math.max(0, minY - padding);
-		maxX = Math.min(width - 1, maxX + padding);
-		maxY = Math.min(height - 1, maxY + padding);
-
-		return {
-			left: minX,
-			top: minY,
-			width: maxX - minX + 1,
-			height: maxY - minY + 1,
-		};
-	}
 }
 
+function getRuntimeConfig(): { serverUrl: string; mode: ConnectionMode } {
+	const currentScript = document.currentScript as HTMLScriptElement | null;
+	const scriptUrl = currentScript?.src ? new URL(currentScript.src) : null;
+	const mode = window.__BCM_CONFIG__?.mode ?? scriptUrl?.searchParams.get("mode") ?? "console";
+
+	return {
+		serverUrl:
+			window.__BCM_CONFIG__?.serverUrl ??
+			scriptUrl?.searchParams.get("serverUrl") ??
+			"ws://localhost:7898/browser",
+		mode: mode === "plugin" || mode === "extension" ? mode : "console",
+	};
+}
+
+const runtimeConfig = getRuntimeConfig();
+
 // Create and connect client instance
-const client = new BrowserConsoleMCP();
+const client = new BrowserConsoleMCP(
+	runtimeConfig.serverUrl,
+	runtimeConfig.mode,
+);
 client.connect();
 
 // Export client instance

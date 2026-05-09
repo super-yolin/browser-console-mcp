@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Browser Console MCP",
+  "version": "1.1.0",
+  "description": "Connect browser tabs to the local Browser Console MCP daemon.",
+  "permissions": ["tabs", "scripting", "storage"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content-script.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Browser Console MCP"
+  }
+}
